@@ -79,6 +79,7 @@ function App() {
             onStart={handleStartGame}
             isGameRunning={isGameRunning}
             onReset={handleResetGame}
+            maxParticipants={currentGame === "race" ? 30 : undefined}
           />
         }
       >

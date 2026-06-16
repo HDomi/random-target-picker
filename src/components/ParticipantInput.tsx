@@ -5,12 +5,14 @@ interface ParticipantInputProps {
   onStart: (participants: string[]) => void;
   isGameRunning: boolean;
   onReset: () => void;
+  maxParticipants?: number;
 }
 
 export const ParticipantInput: React.FC<ParticipantInputProps> = ({
   onStart,
   isGameRunning,
   onReset,
+  maxParticipants,
 }) => {
   const [inputValue, setInputValue] = useState('');
 
@@ -19,6 +21,45 @@ export const ParticipantInput: React.FC<ParticipantInputProps> = ({
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line !== '');
+
+  const handleInputChange = (val: string) => {
+    // Normalize line endings to \n (handles Windows/Mac carriage returns)
+    const normalizedVal = val.replace(/\r/g, '');
+
+    if (maxParticipants === undefined) {
+      setInputValue(normalizedVal);
+      return;
+    }
+
+    const newLines = normalizedVal.split('\n').filter(line => line.trim() !== '');
+    
+    if (newLines.length > maxParticipants) {
+      const currentNonEmptyCount = inputValue.replace(/\r/g, '').split('\n').filter(line => line.trim() !== '').length;
+      
+      if (currentNonEmptyCount < maxParticipants) {
+        // Paste action: slice it
+        const allLines = normalizedVal.split('\n');
+        let count = 0;
+        const slicedLines: string[] = [];
+        for (const line of allLines) {
+          if (line.trim() !== '') {
+            count++;
+          }
+          if (count <= maxParticipants) {
+            slicedLines.push(line);
+          } else {
+            break;
+          }
+        }
+        setInputValue(slicedLines.join('\n'));
+      } else {
+        // Block typing: do not set state, keeping the old value intact.
+      }
+      return;
+    }
+
+    setInputValue(normalizedVal);
+  };
 
   const handleLoadSamples = () => {
     if (isGameRunning) return;
@@ -36,7 +77,7 @@ export const ParticipantInput: React.FC<ParticipantInputProps> = ({
       '호크아이 🏹',
       '스칼렛 위치 🔮',
     ];
-    setInputValue(samples.join('\n'));
+    handleInputChange(samples.join('\n'));
   };
 
   const handleClear = () => {
@@ -100,7 +141,7 @@ export const ParticipantInput: React.FC<ParticipantInputProps> = ({
       <div className="relative flex-1 min-h-[150px] sm:min-h-[200px] mb-3 sm:mb-4">
         <textarea
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={(e) => handleInputChange(e.target.value)}
           disabled={isGameRunning}
           placeholder="엔터(줄바꿈)로 참여자 이름을 입력하세요..."
           className="w-full h-full min-h-[160px] sm:min-h-[220px] bg-slate-950/60 text-slate-200 border border-slate-800 rounded-xl p-3 sm:p-4 text-xs sm:text-sm font-sans focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all placeholder:text-slate-650 resize-none disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-950/20"
@@ -120,12 +161,19 @@ export const ParticipantInput: React.FC<ParticipantInputProps> = ({
         </div>
       )}
 
+      {/* Warning Message if more than maxParticipants */}
+      {maxParticipants !== undefined && parsedList.length > maxParticipants && (
+        <div className="mb-3 sm:mb-4 text-center p-2 rounded-lg bg-red-950/20 border border-red-900/30 text-[11px] sm:text-xs text-red-400">
+          ⚠️ 이 게임은 최대 {maxParticipants}명까지 참여할 수 있습니다. (현재 {parsedList.length}명)
+        </div>
+      )}
+
       {/* Buttons */}
       <div className="flex flex-col gap-2 mt-auto">
         {!isGameRunning ? (
           <button
             onClick={handleStart}
-            disabled={parsedList.length < 2}
+            disabled={parsedList.length < 2 || (maxParticipants !== undefined && parsedList.length > maxParticipants)}
             className="w-full py-2.5 sm:py-3 px-4 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all hover:shadow-blue-500/30 cursor-pointer disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0 active:scale-98"
           >
             <Play className="w-3.5 sm:w-4 h-3.5 sm:h-4 fill-current" />
