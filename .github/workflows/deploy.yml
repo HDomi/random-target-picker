@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages DOMI
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -24,28 +24,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
+      # 1. pnpm을 "먼저" 설치합니다. (순서 매우 중요!)
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
+      # 2. Node.js를 설치하면서 pnpm 캐시를 자동으로 잡습니다.
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+          node-version: 20
+          cache: "pnpm" # ✨ 지긋지긋한 캐시 에러를 한 줄로 해결!
+
+      # (수동 캐시 스텝은 완전히 삭제했습니다)
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile

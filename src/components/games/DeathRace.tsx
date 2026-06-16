@@ -60,7 +60,7 @@ export const DeathRace: React.FC<GameProps> = ({
   const finishLineY = 300;
 
   // React state for HUD
-  const [leader, setLeader] = useState<string>("N/A");
+  const [leader, setLeader] = useState<string>("-");
   const [speedUpActive, setSpeedUpActive] = useState<boolean>(false);
   const [gameEnded, setGameEnded] = useState<boolean>(false);
   const [isManualCamera, setIsManualCamera] = useState<boolean>(false); // Track manual override
@@ -835,7 +835,7 @@ export const DeathRace: React.FC<GameProps> = ({
       ctx.fillRect(0, 0, width, height);
 
       // Handle viewport camera shift
-      let leadingName = "N/A";
+      let leadingName = "-";
       let lastPlaceObj: MarbleInstance | null = null;
 
       if (isStarted && marblesRef.current.length > 0) {
@@ -1550,9 +1550,9 @@ export const DeathRace: React.FC<GameProps> = ({
             </p>
             <p
               className="text-sm font-semibold text-slate-200 truncate"
-              title={isStarted ? `${leader} (${crossedCount}명 완주)` : "N/A"}
+              title={isStarted ? `${leader} (${crossedCount}명 완주)` : "-"}
             >
-              {isStarted ? `${leader} (${crossedCount}명 완주)` : "N/A"}
+              {isStarted ? `${leader} (${crossedCount}명 완주)` : "-"}
             </p>
           </div>
         </div>
