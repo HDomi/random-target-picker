@@ -1526,8 +1526,8 @@ export const DeathRace: React.FC<GameProps> = ({
       </div>
 
       {/* Racetrack HUD Info Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 relative z-10">
-        <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 flex items-center gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6 relative z-10">
+        <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 flex items-center gap-2">
           <div className="p-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400">
             🏁
           </div>
@@ -1542,7 +1542,7 @@ export const DeathRace: React.FC<GameProps> = ({
             </p>
           </div>
         </div>
-        <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 flex items-center gap-3">
+        <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 flex items-center gap-2">
           <Trophy className="w-5 h-5 text-yellow-500" />
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
@@ -1553,17 +1553,6 @@ export const DeathRace: React.FC<GameProps> = ({
               title={isStarted ? `${leader} (${crossedCount}명 완주)` : "N/A"}
             >
               {isStarted ? `${leader} (${crossedCount}명 완주)` : "N/A"}
-            </p>
-          </div>
-        </div>
-        <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 flex items-center gap-3">
-          <ShieldAlert className="w-5 h-5 text-red-400" />
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-              남은 트랙
-            </p>
-            <p className="text-sm font-semibold text-slate-200 truncate">
-              4400M (EXTRA LONG)
             </p>
           </div>
         </div>

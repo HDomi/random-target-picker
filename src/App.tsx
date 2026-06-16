@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { Layout } from './components/Layout';
-import { ParticipantInput } from './components/ParticipantInput';
-import { DeathRace } from './components/games/DeathRace';
-import { TeamBuilder } from './components/games/TeamBuilder';
-import { Trophy, Sparkles, RefreshCw } from 'lucide-react';
+import { useState } from "react";
+import { Layout } from "./components/Layout";
+import { ParticipantInput } from "./components/ParticipantInput";
+import { DeathRace } from "./components/games/DeathRace";
+import { TeamBuilder } from "./components/games/TeamBuilder";
+import { Trophy, Sparkles, RefreshCw } from "lucide-react";
 
-type GameType = 'race' | 'teambuilder';
+type GameType = "race" | "teambuilder";
 
 function App() {
-  const [currentGame, setCurrentGame] = useState<GameType>('race');
+  const [currentGame, setCurrentGame] = useState<GameType>("race");
   const [participants, setParticipants] = useState<string[]>([]);
   const [isGameRunning, setIsGameRunning] = useState(false);
   const [winner, setWinner] = useState<string | null>(null);
@@ -39,7 +39,7 @@ function App() {
   };
 
   const renderGame = () => {
-    if (currentGame === 'race') {
+    if (currentGame === "race") {
       return (
         <DeathRace
           participants={participants}
@@ -49,7 +49,7 @@ function App() {
         />
       );
     }
-    if (currentGame === 'teambuilder') {
+    if (currentGame === "teambuilder") {
       return (
         <TeamBuilder
           participants={participants}
@@ -65,22 +65,68 @@ function App() {
   return (
     <>
       <Layout
-        currentGame={currentGame}
-        setCurrentGame={(game) => {
-          if (!isGameRunning) {
-            setCurrentGame(game);
-            setWinner(null);
-            setRankings([]);
-          }
-        }}
         isGameRunning={isGameRunning}
         sidebar={
-          <ParticipantInput
-            onStart={handleStartGame}
-            isGameRunning={isGameRunning}
-            onReset={handleResetGame}
-            maxParticipants={currentGame === "race" ? 30 : undefined}
-          />
+          <div className="flex flex-col gap-4 h-full">
+            {!isGameRunning && (
+              <>
+                {/* Visual Premium Title */}
+                <div className="px-1 flex flex-col gap-0.5">
+                  <h1 className="text-base font-extrabold tracking-tight text-white flex items-center gap-1.5">
+                    팀섞기 시뮬레이터
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-800 text-blue-400 border border-slate-700 font-mono">
+                      v1.0.0
+                    </span>
+                  </h1>
+                  <p className="text-[10px] text-slate-500">
+                    뽑기로 팀을 섞어보자
+                  </p>
+                </div>
+
+                {/* Premium Segmented Game Selector */}
+                <div className="flex bg-slate-900/60 p-1 rounded-xl border border-slate-800/80 backdrop-blur-sm">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentGame("race");
+                      setWinner(null);
+                      setRankings([]);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
+                      currentGame === "race"
+                        ? "bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-lg shadow-orange-500/10 border border-orange-400/20"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                    }`}
+                  >
+                    <span>🏎️</span>
+                    <span>데스 레이스</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentGame("teambuilder");
+                      setWinner(null);
+                      setRankings([]);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
+                      currentGame === "teambuilder"
+                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/10 border border-blue-400/20"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                    }`}
+                  >
+                    <span>👥</span>
+                    <span>팀 빌더</span>
+                  </button>
+                </div>
+              </>
+            )}
+            <ParticipantInput
+              onStart={handleStartGame}
+              isGameRunning={isGameRunning}
+              onReset={handleResetGame}
+              maxParticipants={currentGame === "race" ? 30 : undefined}
+            />
+          </div>
         }
       >
         <div className="relative w-full h-full flex-1 flex flex-col">
@@ -92,7 +138,6 @@ function App() {
       {winner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
           <div className="relative max-w-lg w-full bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-center shadow-2xl shadow-yellow-500/5 overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh]">
-            
             {/* Decorative glow grids inside modal */}
             <div className="absolute -top-12 -left-12 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl"></div>
             <div className="absolute -bottom-12 -right-12 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl"></div>
@@ -108,18 +153,27 @@ function App() {
               <Trophy className="w-8 h-8 sm:w-10 sm:h-10" />
             </div>
 
-            <h3 className="text-xl sm:text-2xl font-black text-white mb-1 tracking-tight">🏆 최종 레이스 결과 🏆</h3>
-            <p className="text-[10px] sm:text-xs text-slate-400 mb-3 sm:mb-4">완주 순서 기준 최종 순위판입니다.</p>
+            <h3 className="text-xl sm:text-2xl font-black text-white mb-1 tracking-tight">
+              🏆 최종 레이스 결과 🏆
+            </h3>
+            <p className="text-[10px] sm:text-xs text-slate-400 mb-3 sm:mb-4">
+              완주 순서 기준 최종 순위판입니다.
+            </p>
 
             {/* Sports 3D Podium Design for Top 3 */}
             <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-5 items-end px-1 mt-1">
-              
               {/* 2nd Place (Left Side) */}
               {rankings[1] ? (
                 <div className="bg-slate-950/60 border border-slate-800 rounded-xl sm:rounded-2xl p-2 sm:p-3 flex flex-col items-center justify-end min-h-[95px] sm:min-h-[120px] relative order-1">
-                  <span className="text-xl sm:text-2xl mb-0.5 sm:drop-shadow-md">🥈</span>
-                  <p className="text-[9px] font-black text-slate-400 tracking-wider">2ND PLACE</p>
-                  <p className="text-xs sm:text-sm font-extrabold text-slate-200 truncate w-full mt-1 px-0.5">{rankings[1]}</p>
+                  <span className="text-xl sm:text-2xl mb-0.5 sm:drop-shadow-md">
+                    🥈
+                  </span>
+                  <p className="text-[9px] font-black text-slate-400 tracking-wider">
+                    2등
+                  </p>
+                  <p className="text-xs sm:text-sm font-extrabold text-slate-200 truncate w-full mt-1 px-0.5">
+                    {rankings[1]}
+                  </p>
                 </div>
               ) : (
                 <div className="bg-slate-950/20 border border-dashed border-slate-900 rounded-xl sm:rounded-2xl min-h-[95px] sm:min-h-[120px] order-1"></div>
@@ -128,9 +182,15 @@ function App() {
               {/* 1st Place (Center / Tallest) */}
               {rankings[0] ? (
                 <div className="bg-gradient-to-b from-yellow-500/10 to-slate-950/60 border border-yellow-500/30 rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col items-center justify-end min-h-[115px] sm:min-h-[145px] relative order-2 shadow-lg shadow-yellow-500/5 ring-1 ring-yellow-500/10">
-                  <span className="text-2xl sm:text-3xl mb-1 animate-bounce sm:drop-shadow-md">🥇</span>
-                  <p className="text-[10px] sm:text-xs font-black text-yellow-500 tracking-widest">CHAMPION</p>
-                  <p className="text-sm sm:text-base font-black text-yellow-400 truncate w-full mt-1 px-0.5 drop-shadow-glow">{rankings[0]}</p>
+                  <span className="text-2xl sm:text-3xl mb-1 animate-bounce sm:drop-shadow-md">
+                    🥇
+                  </span>
+                  <p className="text-[10px] sm:text-xs font-black text-yellow-500 tracking-widest">
+                    CHAMPION
+                  </p>
+                  <p className="text-sm sm:text-base font-black text-yellow-400 truncate w-full mt-1 px-0.5 drop-shadow-glow">
+                    {rankings[0]}
+                  </p>
                 </div>
               ) : (
                 <div className="bg-slate-950/20 border border-dashed border-slate-900 rounded-xl sm:rounded-2xl min-h-[115px] sm:min-h-[145px] order-2"></div>
@@ -139,27 +199,41 @@ function App() {
               {/* 3rd Place (Right Side) */}
               {rankings[2] ? (
                 <div className="bg-slate-950/60 border border-slate-800 rounded-xl sm:rounded-2xl p-2 sm:p-3 flex flex-col items-center justify-end min-h-[85px] sm:min-h-[110px] relative order-3">
-                  <span className="text-xl sm:text-2xl mb-0.5 sm:drop-shadow-md">🥉</span>
-                  <p className="text-[9px] font-black text-slate-500 tracking-wider">3RD PLACE</p>
-                  <p className="text-xs sm:text-sm font-extrabold text-slate-300 truncate w-full mt-1 px-0.5">{rankings[2]}</p>
+                  <span className="text-xl sm:text-2xl mb-0.5 sm:drop-shadow-md">
+                    🥉
+                  </span>
+                  <p className="text-[9px] font-black text-slate-500 tracking-wider">
+                    3등
+                  </p>
+                  <p className="text-xs sm:text-sm font-extrabold text-slate-300 truncate w-full mt-1 px-0.5">
+                    {rankings[2]}
+                  </p>
                 </div>
               ) : (
                 <div className="bg-slate-950/20 border border-dashed border-slate-900 rounded-xl sm:rounded-2xl min-h-[85px] sm:min-h-[110px] order-3"></div>
               )}
-
             </div>
 
             {/* Remainder Rankings (Scrollable List for 4th and below) */}
             {rankings.length > 3 && (
               <div className="flex-1 overflow-y-auto max-h-[130px] sm:max-h-[180px] mb-4 sm:mb-5 bg-slate-950/50 border border-slate-850 rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 text-left">
-                <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">기타 순위 (4등 이하)</p>
+                <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">
+                  기타 순위 (4등 이하)
+                </p>
                 <div className="flex flex-col gap-1 sm:gap-1.5">
                   {rankings.slice(3).map((name, index) => {
                     const rankNum = index + 4;
                     return (
-                      <div key={`${name}-${index}`} className="flex items-center justify-between py-1.5 px-2.5 rounded-lg sm:rounded-xl bg-slate-900/40 border border-slate-850 text-[11px] sm:text-xs transition-colors hover:border-slate-800">
-                        <span className="font-mono text-slate-400 font-bold">{rankNum}등</span>
-                        <span className="font-semibold text-slate-200">{name}</span>
+                      <div
+                        key={`${name}-${index}`}
+                        className="flex items-center justify-between py-1.5 px-2.5 rounded-lg sm:rounded-xl bg-slate-900/40 border border-slate-850 text-[11px] sm:text-xs transition-colors hover:border-slate-800"
+                      >
+                        <span className="font-mono text-slate-400 font-bold">
+                          {rankNum}등
+                        </span>
+                        <span className="font-semibold text-slate-200">
+                          {name}
+                        </span>
                       </div>
                     );
                   })}
