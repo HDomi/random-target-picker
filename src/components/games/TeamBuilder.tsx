@@ -335,7 +335,7 @@ export const TeamBuilder: React.FC<GameProps> = ({
               className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 hover:text-red-400 text-slate-300 transition-all border border-slate-700 active:scale-95 cursor-pointer flex items-center gap-1"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              비우기/돌아가기
+              비우기 / 돌아가기
             </button>
           )}
         </div>

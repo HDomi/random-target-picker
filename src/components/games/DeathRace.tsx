@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Engine, Bodies, Composite, Body, Events } from "matter-js";
-import { Flag, Trophy, ShieldAlert, Zap } from "lucide-react";
+import { Flag, Trophy, ShieldAlert } from "lucide-react";
 
 interface GameProps {
   participants: string[];
@@ -37,13 +37,6 @@ interface ObstacleConfig {
   r: number;
 }
 
-interface BoosterConfig {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
 interface MarbleInstance {
   body: Body;
   name: string;
@@ -61,10 +54,10 @@ export const DeathRace: React.FC<GameProps> = ({
   const engineRef = useRef<Engine | null>(null);
   const requestRef = useRef<number | null>(null);
 
-  // Track parameters (Expanded to 4800px)
-  const trackWidth = 4800;
-  const [trackHeight, setTrackHeight] = useState<number>(500);
-  const finishLineX = 4500;
+  // Track parameters (Vertical length 4800px, width scales dynamically)
+  const trackHeight = 4800;
+  const [trackWidth, setTrackWidth] = useState<number>(800);
+  const finishLineY = 300;
 
   // React state for HUD
   const [leader, setLeader] = useState<string>("N/A");
@@ -87,12 +80,12 @@ export const DeathRace: React.FC<GameProps> = ({
   // References for drawing loop & physics
   const particlesRef = useRef<Particle[]>([]);
   const marblesRef = useRef<MarbleInstance[]>([]);
-  const cameraXRef = useRef<number>(0);
+  const cameraYRef = useRef<number>(0);
   const isSpeedUpRef = useRef<boolean>(false);
   const cameraShakeRef = useRef<number>(0); // Screen shake intensity
   const activeShockwavesRef = useRef<Shockwave[]>([]); // Dynamic expanding shockwaves
 
-  // List tracking the crossing order of marbles
+  // List tracking the crossing order of marbles by body ID
   const crossedListRef = useRef<number[]>([]);
   const isManualCameraRef = useRef<boolean>(false); // Ref for loop access
 
@@ -137,15 +130,22 @@ export const DeathRace: React.FC<GameProps> = ({
     });
     engineRef.current = engine;
 
-    const scaleY = trackHeight / 500;
+    const scaleX = trackWidth / 500; // 500 is reference width
 
-    // Helper coordinate checks for Slow Mud Zones
+    const transformPos = (x_orig: number, y_orig: number) => {
+      return {
+        x: y_orig * scaleX,
+        y: trackHeight - x_orig,
+      };
+    };
+
+    // Helper coordinate checks for Slow Mud Zones (transformed to vertical)
     const isInsideSlowZone = (pos: { x: number; y: number }) => {
       const zones = [
-        { xMin: 790, xMax: 1010, yMin: 0, yMax: 150 * scaleY }, // Mud 1
-        { xMin: 1540, xMax: 1760, yMin: 175 * scaleY, yMax: 325 * scaleY }, // Mud 2
-        { xMin: 2290, xMax: 2510, yMin: 350 * scaleY, yMax: 500 * scaleY }, // Mud 3
-        { xMin: 3480, xMax: 3720, yMin: 150 * scaleY, yMax: 350 * scaleY }, // Mud 4
+        { xMin: 0, xMax: 150 * scaleX, yMin: 3790, yMax: 4010 }, // Mud 1
+        { xMin: 175 * scaleX, xMax: 325 * scaleX, yMin: 3040, yMax: 3260 }, // Mud 2
+        { xMin: 350 * scaleX, xMax: 500 * scaleX, yMin: 2290, yMax: 2510 }, // Mud 3
+        { xMin: 150 * scaleX, xMax: 350 * scaleX, yMin: 1080, yMax: 1320 }, // Mud 4
       ];
       return zones.some(
         (zone) =>
@@ -158,85 +158,94 @@ export const DeathRace: React.FC<GameProps> = ({
 
     // Outer boundary configurations
     const boundaries = [
-      Bodies.rectangle(trackWidth / 2, -10, trackWidth, 20, {
-        isStatic: true,
-        label: "wall",
-        restitution: 0.8,
-      }),
-      Bodies.rectangle(trackWidth / 2, trackHeight + 10, trackWidth, 20, {
-        isStatic: true,
-        label: "wall",
-        restitution: 0.8,
-      }),
+      // Left Wall
       Bodies.rectangle(-10, trackHeight / 2, 20, trackHeight, {
         isStatic: true,
         label: "wall",
+        restitution: 0.8,
+        friction: 0,
+        frictionStatic: 0,
+      }),
+      // Right Wall
+      Bodies.rectangle(trackWidth + 10, trackHeight / 2, 20, trackHeight, {
+        isStatic: true,
+        label: "wall",
+        restitution: 0.8,
+        friction: 0,
+        frictionStatic: 0,
+      }),
+      // Bottom Wall
+      Bodies.rectangle(trackWidth / 2, trackHeight + 10, trackWidth, 20, {
+        isStatic: true,
+        label: "wall",
+        friction: 0,
+        frictionStatic: 0,
+      }),
+      // Top Barrier
+      Bodies.rectangle(trackWidth / 2, -50, trackWidth, 20, {
+        isStatic: true,
+        label: "wall",
+        friction: 0,
+        frictionStatic: 0,
       }),
     ];
     Composite.add(engine.world, boundaries);
 
     // Maze Static Obstacles (Inner Walls - Slanted!)
     const mazeWallsData = [
-      { x: 1500, y: 30 * scaleY, w: 24, h: 220 * scaleY, angle: -Math.PI / 4 },
-      {
-        x: 1800,
-        y: trackHeight - 30 * scaleY,
-        w: 24,
-        h: 220 * scaleY,
-        angle: Math.PI / 4,
-      },
-      { x: 2950, y: 250 * scaleY, w: 24, h: 200 * scaleY, angle: Math.PI / 4 },
-      { x: 4000, y: 60 * scaleY, w: 24, h: 220 * scaleY, angle: -Math.PI / 4 },
-      {
-        x: 4000,
-        y: trackHeight - 60 * scaleY,
-        w: 24,
-        h: 220 * scaleY,
-        angle: Math.PI / 4,
-      },
+      { x: 1500, y: 110, w: 24, h: 160, angle: -Math.PI / 4 },
+      { x: 1800, y: 500 - 110, w: 24, h: 160, angle: Math.PI / 4 },
+      { x: 2950, y: 250, w: 24, h: 180, angle: Math.PI / 4 },
+      { x: 4000, y: 120, w: 24, h: 160, angle: -Math.PI / 4 },
+      { x: 4000, y: 500 - 120, w: 24, h: 160, angle: Math.PI / 4 },
     ];
 
     const staticMazeWalls = mazeWallsData.map((w) => {
-      const body = Bodies.rectangle(w.x, w.y, w.w, w.h, {
+      const pos = transformPos(w.x, w.y);
+      const new_w = w.h * scaleX; // length along horizontal
+      const new_h = w.w; // thickness along vertical
+      const body = Bodies.rectangle(pos.x, pos.y, new_w, new_h, {
         isStatic: true,
         label: "wall",
         restitution: 0.95,
-        friction: 0.02,
-        angle: w.angle,
+        friction: 0,
+        frictionStatic: 0,
+        angle: w.angle + Math.PI / 2,
       });
-      body.plugin = { w: w.w, h: w.h };
+      body.plugin = { isMazeWall: true, w: new_w, h: new_h };
       return body;
     });
     Composite.add(engine.world, staticMazeWalls);
 
     // Bouncy Static Obstacles (Bumpers)
     const obstaclesData: ObstacleConfig[] = [
-      { x: 450, y: 150 * scaleY, r: 25 },
-      { x: 450, y: 350 * scaleY, r: 25 },
-      { x: 750, y: 250 * scaleY, r: 35 },
+      { x: 450, y: 150, r: 25 },
+      { x: 450, y: 350, r: 25 },
+      { x: 750, y: 250, r: 35 },
 
       // Sector 2 Maze Bumpers
-      { x: 1350, y: 150 * scaleY, r: 24 },
-      { x: 1350, y: 350 * scaleY, r: 24 },
-      { x: 1650, y: 100 * scaleY, r: 22 },
-      { x: 1650, y: 250 * scaleY, r: 25 },
-      { x: 1650, y: 400 * scaleY, r: 22 },
-      { x: 1950, y: 150 * scaleY, r: 24 },
-      { x: 1950, y: 350 * scaleY, r: 24 },
+      { x: 1350, y: 150, r: 24 },
+      { x: 1350, y: 350, r: 24 },
+      { x: 1650, y: 100, r: 22 },
+      { x: 1650, y: 250, r: 25 },
+      { x: 1650, y: 400, r: 22 },
+      { x: 1950, y: 150, r: 24 },
+      { x: 1950, y: 350, r: 24 },
 
       // Sector 3 Bumpers
-      { x: 2550, y: 250 * scaleY, r: 30 },
-      { x: 2800, y: 180 * scaleY, r: 20 },
-      { x: 2800, y: 320 * scaleY, r: 20 },
-      { x: 3100, y: 100 * scaleY, r: 25 },
-      { x: 3100, y: 400 * scaleY, r: 25 },
-      { x: 3800, y: 150 * scaleY, r: 28 },
-      { x: 3800, y: 350 * scaleY, r: 28 },
-      { x: 4150, y: 250 * scaleY, r: 30 },
+      { x: 2550, y: 250, r: 30 },
+      { x: 2800, y: 180, r: 20 },
+      { x: 2800, y: 320, r: 20 },
+      { x: 3100, y: 100, r: 25 },
+      { x: 3100, y: 400, r: 25 },
+      { x: 3800, y: 150, r: 28 },
+      { x: 3800, y: 350, r: 28 },
+      { x: 4150, y: 250, r: 30 },
     ];
 
     const staticObstacles = obstaclesData.map((data) => {
-      return Bodies.circle(data.x, data.y, data.r, {
+      const pos = transformPos(data.x, data.y);
+      return Bodies.circle(pos.x, pos.y, data.r, {
         isStatic: true,
         label: "obstacle",
         restitution: 1.35,
@@ -246,19 +255,22 @@ export const DeathRace: React.FC<GameProps> = ({
     Composite.add(engine.world, staticObstacles);
 
     // Booster Sensors (Green arrows)
-    const boostersData: BoosterConfig[] = [
-      { x: 600, y: 250 * scaleY, w: 60, h: 200 * scaleY },
-      { x: 1350, y: 250 * scaleY, w: 60, h: 120 * scaleY },
-      { x: 2000, y: 100 * scaleY, w: 60, h: 140 * scaleY },
-      { x: 2000, y: 400 * scaleY, w: 60, h: 140 * scaleY },
-      { x: 3100, y: 250 * scaleY, w: 65, h: 160 * scaleY },
-      { x: 3900, y: 250 * scaleY, w: 60, h: 140 * scaleY },
-      { x: 4250, y: 150 * scaleY, w: 60, h: 150 * scaleY },
-      { x: 4250, y: 350 * scaleY, w: 60, h: 150 * scaleY },
+    const boostersData = [
+      { x: 600, y: 250, w: 60, h: 200 },
+      { x: 1350, y: 250, w: 60, h: 120 },
+      { x: 2000, y: 100, w: 60, h: 140 },
+      { x: 2000, y: 400, w: 60, h: 140 },
+      { x: 3100, y: 250, w: 65, h: 160 },
+      { x: 3900, y: 250, w: 60, h: 140 },
+      { x: 4250, y: 150, w: 60, h: 150 },
+      { x: 4250, y: 350, w: 60, h: 150 },
     ];
 
     const staticBoosters = boostersData.map((data) => {
-      return Bodies.rectangle(data.x, data.y, data.w, data.h, {
+      const pos = transformPos(data.x, data.y);
+      const new_w = data.h * scaleX; // new width along horizontal
+      const new_h = data.w; // new height along vertical
+      return Bodies.rectangle(pos.x, pos.y, new_w, new_h, {
         isStatic: true,
         isSensor: true,
         label: "booster",
@@ -284,35 +296,43 @@ export const DeathRace: React.FC<GameProps> = ({
       });
     };
 
-    const windmill1 = createWindmill(1100, 250 * scaleY, 160 * scaleY);
-    const windmill2 = createWindmill(2300, 250 * scaleY, 160 * scaleY);
-    const windmill3 = createWindmill(3400, 120 * scaleY, 140 * scaleY);
-    const windmill4 = createWindmill(3400, 380 * scaleY, 140 * scaleY);
+    const windmill1 = createWindmill(250 * scaleX, 4800 - 1100, 160 * scaleX);
+    const windmill2 = createWindmill(250 * scaleX, 4800 - 2300, 160 * scaleX);
+    const windmill3 = createWindmill(120 * scaleX, 4800 - 3400, 140 * scaleX);
+    const windmill4 = createWindmill(380 * scaleX, 4800 - 3400, 140 * scaleX);
     const windmills = [windmill1, windmill2, windmill3, windmill4];
     Composite.add(engine.world, windmills);
 
-      // Create Marbles if game started
-      if (isStarted && participants.length > 0) {
-        crossedListRef.current = [];
-        isManualCameraRef.current = false; // Reset camera on start
+    // Create Marbles/Cars if game started
+    if (isStarted && participants.length > 0) {
+      crossedListRef.current = [];
+      isManualCameraRef.current = false;
 
-        const startX = 60;
+      const startY = 4700;
 
       const marbles = participants.map((name, index) => {
-        const spreadY =
+        const spreadX =
           participants.length > 1
-            ? 50 + (index * (trackHeight - 100)) / (participants.length - 1)
-            : trackHeight / 2;
+            ? 50 + (index * (trackWidth - 100)) / (participants.length - 1)
+            : trackWidth / 2;
 
-        const body = Bodies.circle(startX, spreadY, 14, {
+        const body = Bodies.circle(spreadX, startY, 14, {
           restitution: 0.85,
           frictionAir: 0.04,
           friction: 0,
+          frictionStatic: 0,
           label: "marble",
           density: 0.0015,
         });
 
-        body.plugin = { name, stunTime: 0, stuckFrames: 0 };
+        body.plugin = {
+          name,
+          stunTime: 0,
+          stuckFrames: 0,
+          lastProgressY: startY,
+          progressFrames: 0,
+          breakoutTime: 0,
+        };
         return {
           body,
           name,
@@ -340,13 +360,13 @@ export const DeathRace: React.FC<GameProps> = ({
         Body.setAngularVelocity(wm, rotationSpeed);
       });
 
-      // Find leading X and lagging X bounds for Rubberbanding
-      let maxLeaderX = 60;
-      let minLaggingX = Infinity;
+      // Find leading Y and lagging Y bounds for Rubberbanding
+      let minLeaderY = 4700;
+      let maxLaggingY = -Infinity;
 
       marblesRef.current.forEach((m) => {
-        if (m.body.position.x > maxLeaderX) maxLeaderX = m.body.position.x;
-        if (m.body.position.x < minLaggingX) minLaggingX = m.body.position.x;
+        if (m.body.position.y < minLeaderY) minLeaderY = m.body.position.y;
+        if (m.body.position.y > maxLaggingY) maxLaggingY = m.body.position.y;
       });
 
       marblesRef.current.forEach((m) => {
@@ -362,84 +382,107 @@ export const DeathRace: React.FC<GameProps> = ({
           });
         }
 
-        let steerY = 0;
+        let steerX = 0;
+        let bypassNormalForces = false;
+        let breakoutForceX = 0;
+        let breakoutForceY = 0;
 
-        // 1. Static Obstacles (Bumpers) Avoidance Steering
-        const scanRange = 85;
-        staticObstacles.forEach((obs) => {
-          const dx = obs.position.x - currentPos.x;
-          if (dx > 0 && dx < scanRange) {
-            const dy = obs.position.y - currentPos.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+        if (m.body.plugin && m.body.plugin.breakoutTime > 0) {
+          m.body.plugin.breakoutTime--;
+          bypassNormalForces = true;
+          breakoutForceX = currentPos.x < trackWidth / 2 ? 0.0022 : -0.0022;
+          breakoutForceY = -0.0018;
 
-            const r = obs.circleRadius || 24;
-            const safetyDist = r + 28;
-            if (dist < safetyDist && dist > 0) {
-              const avoidDir = dy >= 0 ? -1 : 1;
-              const forceMagnitude = 0.00045 * (1 - dist / safetyDist);
-              steerY += avoidDir * forceMagnitude;
-            }
+          // Occasionally spawn breakout/escape particles
+          if (m.body.plugin.breakoutTime % 5 === 0) {
+            spawnParticles(currentPos.x, currentPos.y, "#06b6d4", 2, 0.8);
           }
-        });
-
-        // 2. windmills Avoidance Steering
-        windmills.forEach((wm) => {
-          const dx = wm.position.x - currentPos.x;
-          if (dx > 0 && dx < scanRange + 20) {
-            const dy = wm.position.y - currentPos.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            const safetyDist = 95;
-            if (dist < safetyDist && dist > 0) {
-              const avoidDir = dy >= 0 ? -1 : 1;
-              const forceMagnitude = 0.0004 * (1 - dist / safetyDist);
-              steerY += avoidDir * forceMagnitude;
-            }
-          }
-        });
-
-        // 3. Ceiling/Floor Boundary Avoidance Steering
-        if (currentPos.y < 28) {
-          steerY += 0.0003;
-        } else if (currentPos.y > trackHeight - 28) {
-          steerY -= 0.0003;
         }
 
-        // Anti-Stuck Mechanism: boost marbles that are nearly stationary for too long
+        if (!bypassNormalForces) {
+          // 1. Static Obstacles (Bumpers) Avoidance Steering
+          const scanRange = 85;
+          staticObstacles.forEach((obs) => {
+            const dy = currentPos.y - obs.position.y; // positive if obstacle is ahead (above)
+            if (dy > 0 && dy < scanRange) {
+              const dx = obs.position.x - currentPos.x;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+
+              const r = obs.circleRadius || 24;
+              const safetyDist = r + 28;
+              if (dist < safetyDist && dist > 0) {
+                const avoidDir = dx >= 0 ? -1 : 1;
+                const forceMagnitude = 0.00045 * (1 - dist / safetyDist);
+                steerX += avoidDir * forceMagnitude;
+              }
+            }
+          });
+
+          // 2. Windmills Avoidance Steering
+          windmills.forEach((wm) => {
+            const dy = currentPos.y - wm.position.y;
+            if (dy > 0 && dy < scanRange + 20) {
+              const dx = wm.position.x - currentPos.x;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+
+              const safetyDist = 95;
+              if (dist < safetyDist && dist > 0) {
+                const avoidDir = dx >= 0 ? -1 : 1;
+                const forceMagnitude = 0.0004 * (1 - dist / safetyDist);
+                steerX += avoidDir * forceMagnitude;
+              }
+            }
+          });
+
+          // 3. Side Boundary Avoidance Steering (Left/Right Walls)
+          const leftDist = currentPos.x - 14;
+          if (leftDist < 20) {
+            const pushRight = 0.0012 * (1 - Math.max(0, leftDist) / 20);
+            steerX += pushRight;
+          }
+          const rightDist = trackWidth - 14 - currentPos.x;
+          if (rightDist < 20) {
+            const pushLeft = 0.0012 * (1 - Math.max(0, rightDist) / 20);
+            steerX -= pushLeft;
+          }
+        }
+
+        // Progress-based Stuck Detection: trigger breakout if no Y-progress for 100 frames (~1.6s)
         const isFinished = crossedListRef.current.includes(m.body.id);
         if (!isFinished && m.body.plugin) {
-          if (currentSpeed < 0.35) {
-            m.body.plugin.stuckFrames = (m.body.plugin.stuckFrames || 0) + 1;
+          const lastProgressY =
+            m.body.plugin.lastProgressY !== undefined
+              ? m.body.plugin.lastProgressY
+              : currentPos.y;
+
+          if (currentPos.y < lastProgressY - 5) {
+            m.body.plugin.lastProgressY = currentPos.y;
+            m.body.plugin.progressFrames = 0;
           } else {
-            m.body.plugin.stuckFrames = 0;
+            m.body.plugin.progressFrames =
+              (m.body.plugin.progressFrames || 0) + 1;
           }
 
-          if (m.body.plugin.stuckFrames > 50) {
-            m.body.plugin.stuckFrames = 0;
+          if (m.body.plugin.progressFrames > 100) {
+            m.body.plugin.progressFrames = 0;
+            m.body.plugin.lastProgressY = currentPos.y;
+            m.body.plugin.breakoutTime = 40;
 
-            const escapeForceX = 0.004;
-
-            // Diagonal breakout direction calculation
-            let escapeForceY = (Math.random() - 0.5) * 0.005;
-            if (currentPos.y < trackHeight / 3) {
-              escapeForceY = 0.0045; // Steer down
-            } else if (currentPos.y > (trackHeight * 2) / 3) {
-              escapeForceY = -0.0045; // Steer up
-            }
+            const escapeForceY = -0.005;
+            const escapeForceX = currentPos.x < trackWidth / 2 ? 0.006 : -0.006;
 
             Body.applyForce(m.body, m.body.position, {
               x: escapeForceX,
               y: escapeForceY,
             });
 
-            // Set diagonal breakout velocity
             Body.setVelocity(m.body, {
-              x: Math.max(m.body.velocity.x + 2.0, 3.0),
-              y: escapeForceY > 0 ? 3.5 : -3.5,
+              x: escapeForceX > 0 ? 4.5 : -4.5,
+              y: -5.0,
             });
 
-            // Spawn cyan escape particles
-            spawnParticles(currentPos.x, currentPos.y, "#38bdf8", 6, 1.0);
+            // Spawn escape particles
+            spawnParticles(currentPos.x, currentPos.y, "#38bdf8", 8, 1.2);
           }
         }
 
@@ -488,15 +531,15 @@ export const DeathRace: React.FC<GameProps> = ({
           cameraShakeRef.current = Math.max(cameraShakeRef.current, 7.5);
         }
 
-        // Check slow mud zones
+        // Check slow mud zones (gravel)
         const insideSlow = isInsideSlowZone(currentPos);
 
         if (insideSlow) {
           m.body.frictionAir = 0.14;
-          if (m.body.velocity.x > 2.0) {
+          if (m.body.velocity.y < -2.0) {
             Body.setVelocity(m.body, {
-              x: m.body.velocity.x * 0.9,
-              y: m.body.velocity.y,
+              x: m.body.velocity.x,
+              y: m.body.velocity.y * 0.9,
             });
           }
         } else {
@@ -505,34 +548,41 @@ export const DeathRace: React.FC<GameProps> = ({
 
         // Rubberbanding Catch-up forces
         const baseForce = 0.00025;
-        let forceX = baseForce;
+        let forceY = baseForce;
 
-        const gapDistance = maxLeaderX - currentPos.x;
+        const gapDistance = currentPos.y - minLeaderY;
         if (gapDistance > 0) {
           const catchUpFactor = 1 + Math.min(3.5, gapDistance / 240);
-          forceX *= catchUpFactor;
+          forceY *= catchUpFactor;
         }
 
         // Last-place rage aura bonus force
         const isLagger =
-          currentPos.x <= minLaggingX && marblesRef.current.length > 1;
+          currentPos.y >= maxLaggingY && marblesRef.current.length > 1;
         if (isLagger) {
-          forceX *= 1.4;
+          forceY *= 1.4;
         }
 
-        // Wobble noise
-        const randomForceX = (Math.random() - 0.3) * 0.00008;
-        const randomForceY = (Math.random() - 0.5) * 0.00012;
+        if (bypassNormalForces) {
+          Body.applyForce(m.body, m.body.position, {
+            x: breakoutForceX,
+            y: breakoutForceY,
+          });
+        } else {
+          // Wobble noise
+          const randomForceX = (Math.random() - 0.5) * 0.00012;
+          const randomForceY = (Math.random() - 0.7) * 0.00008; // biased upwards
 
-        Body.applyForce(m.body, m.body.position, {
-          x: forceX + randomForceX,
-          y: steerY + randomForceY,
-        });
+          Body.applyForce(m.body, m.body.position, {
+            x: steerX + randomForceX,
+            y: -forceY + randomForceY,
+          });
+        }
 
-        // Leader drag force scaling
+        // Leader speed limit drag
         const isLeader =
-          currentPos.x >= maxLeaderX && marblesRef.current.length > 1;
-        const speedLimit = isLeader && maxLeaderX > 300 ? 11.5 : 16;
+          currentPos.y <= minLeaderY && marblesRef.current.length > 1;
+        const speedLimit = isLeader && minLeaderY < 4500 ? 11.5 : 16;
 
         if (currentSpeed > speedLimit) {
           Body.setVelocity(m.body, {
@@ -543,7 +593,7 @@ export const DeathRace: React.FC<GameProps> = ({
       });
     });
 
-    // Handle collision trigger (boosters, windmills, bumpers, and body contact)
+    // Handle collision trigger (boosters)
     Events.on(engine, "collisionStart", (event) => {
       event.pairs.forEach((pair) => {
         const { bodyA, bodyB } = pair;
@@ -597,60 +647,56 @@ export const DeathRace: React.FC<GameProps> = ({
               cameraShakeRef.current = Math.max(cameraShakeRef.current, 4.5);
               spawnParticles(impactX, impactY, colorA, 8, 1.4);
               spawnParticles(impactX, impactY, colorB, 8, 1.4);
-            } else {
-              spawnParticles(impactX, impactY, colorA, 3, 0.8);
-              spawnParticles(impactX, impactY, colorB, 3, 0.8);
             }
           }
-          return;
-        }
+        } else {
+          let marbleBody: Body | null = null;
+          let otherBody: Body | null = null;
 
-        let marbleBody: Body | null = null;
-        let otherBody: Body | null = null;
+          if (bodyA.label === "marble") {
+            marbleBody = bodyA;
+            otherBody = bodyB;
+          } else if (bodyB.label === "marble") {
+            marbleBody = bodyB;
+            otherBody = bodyA;
+          }
 
-        if (bodyA.label === "marble") {
-          marbleBody = bodyA;
-          otherBody = bodyB;
-        } else if (bodyB.label === "marble") {
-          marbleBody = bodyB;
-          otherBody = bodyA;
-        }
-
-        if (marbleBody && otherBody) {
-          const marbleObj = marblesRef.current.find(
-            (m) => m.body === marbleBody,
-          );
-          const color = marbleObj ? marbleObj.color : "#ffffff";
-
-          if (otherBody.label === "booster") {
-            Body.setVelocity(marbleBody, {
-              x: Math.max(marbleBody.velocity.x + 12, 22),
-              y: marbleBody.velocity.y * 0.5,
-            });
-            spawnParticles(
-              marbleBody.position.x,
-              marbleBody.position.y,
-              color,
-              12,
-              1.8,
+          if (marbleBody && otherBody) {
+            const marbleObj = marblesRef.current.find(
+              (m) => m.body === marbleBody,
             );
-          } else if (otherBody.label === "windmill") {
-            cameraShakeRef.current = Math.max(cameraShakeRef.current, 7);
-            spawnParticles(
-              marbleBody.position.x,
-              marbleBody.position.y,
-              "#f59e0b",
-              18,
-              2.0,
-            );
-          } else if (otherBody.label === "obstacle") {
-            spawnParticles(
-              marbleBody.position.x,
-              marbleBody.position.y,
-              "#f97316",
-              6,
-              1.2,
-            );
+            const color = marbleObj ? marbleObj.color : "#ffffff";
+
+            if (otherBody.label === "booster") {
+              Body.setVelocity(marbleBody, {
+                x: marbleBody.velocity.x * 0.5,
+                y: Math.min(marbleBody.velocity.y - 12, -22),
+              });
+              spawnParticles(
+                marbleBody.position.x,
+                marbleBody.position.y,
+                color,
+                12,
+                1.8,
+              );
+            } else if (otherBody.label === "windmill") {
+              cameraShakeRef.current = Math.max(cameraShakeRef.current, 7);
+              spawnParticles(
+                marbleBody.position.x,
+                marbleBody.position.y,
+                "#f59e0b",
+                18,
+                2.0,
+              );
+            } else if (otherBody.label === "obstacle") {
+              spawnParticles(
+                marbleBody.position.x,
+                marbleBody.position.y,
+                "#f97316",
+                6,
+                1.2,
+              );
+            }
           }
         }
       });
@@ -681,7 +727,7 @@ export const DeathRace: React.FC<GameProps> = ({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [isStarted, participants, trackHeight]);
+  }, [isStarted, participants, trackWidth]);
 
   // Drawing, Drag-to-Scroll binding, & Physics updates
   useEffect(() => {
@@ -694,35 +740,35 @@ export const DeathRace: React.FC<GameProps> = ({
     let width = (canvas.width = canvas.offsetWidth);
     let height = (canvas.height = canvas.offsetHeight);
 
-    const updateTrackHeight = () => {
-      const h = canvas.clientHeight || canvas.offsetHeight || 500;
-      setTrackHeight((prev) => (prev !== h ? h : prev));
+    const updateTrackWidth = () => {
+      const w = canvas.clientWidth || canvas.offsetWidth || 800;
+      setTrackWidth((prev) => (prev !== w ? w : prev));
     };
 
-    // Update height on initial mount
-    updateTrackHeight();
+    // Update width on initial mount
+    updateTrackWidth();
 
     const handleResize = () => {
       if (!canvas) return;
       width = canvas.width = canvas.offsetWidth;
       height = canvas.height = canvas.offsetHeight;
 
-      // Update height only if game has not started or has ended
+      // Update width only if game has not started or has ended
       if (!isStarted || gameEnded) {
-        updateTrackHeight();
+        updateTrackWidth();
       }
     };
     window.addEventListener("resize", handleResize);
 
     // Mouse/Touch Drag event handlers for Manual Camera Control
     let isDragging = false;
-    let dragStartXVal = 0;
-    let dragStartCamXVal = 0;
+    let dragStartYVal = 0;
+    let dragStartCamYVal = 0;
 
     const onMouseDown = (e: MouseEvent) => {
       isDragging = true;
-      dragStartXVal = e.clientX;
-      dragStartCamXVal = cameraXRef.current;
+      dragStartYVal = e.clientY;
+      dragStartCamYVal = cameraYRef.current;
       isManualCameraRef.current = true;
       setIsManualCamera(true);
       canvas.style.cursor = "grabbing";
@@ -730,11 +776,10 @@ export const DeathRace: React.FC<GameProps> = ({
 
     const onMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
-      const dx = e.clientX - dragStartXVal;
-      // Clamp camera X strictly between 0 and trackWidth - canvas viewport width
-      cameraXRef.current = Math.max(
+      const dy = e.clientY - dragStartYVal;
+      cameraYRef.current = Math.max(
         0,
-        Math.min(trackWidth - width, dragStartCamXVal - dx),
+        Math.min(trackHeight - height, dragStartCamYVal - dy),
       );
     };
 
@@ -747,18 +792,18 @@ export const DeathRace: React.FC<GameProps> = ({
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 0) return;
       isDragging = true;
-      dragStartXVal = e.touches[0].clientX;
-      dragStartCamXVal = cameraXRef.current;
+      dragStartYVal = e.touches[0].clientY;
+      dragStartCamYVal = cameraYRef.current;
       isManualCameraRef.current = true;
       setIsManualCamera(true);
     };
 
     const onTouchMove = (e: TouchEvent) => {
       if (!isDragging || e.touches.length === 0) return;
-      const dx = e.touches[0].clientX - dragStartXVal;
-      cameraXRef.current = Math.max(
+      const dy = e.touches[0].clientY - dragStartYVal;
+      cameraYRef.current = Math.max(
         0,
-        Math.min(trackWidth - width, dragStartCamXVal - dx),
+        Math.min(trackHeight - height, dragStartCamYVal - dy),
       );
     };
 
@@ -786,7 +831,7 @@ export const DeathRace: React.FC<GameProps> = ({
       engine.timing.timeScale = isSpeedUpRef.current ? 3.0 : 1.0;
       Engine.update(engine, 16.666);
 
-      ctx.fillStyle = "#090d16";
+      ctx.fillStyle = "#0f172a";
       ctx.fillRect(0, 0, width, height);
 
       // Handle viewport camera shift
@@ -794,16 +839,16 @@ export const DeathRace: React.FC<GameProps> = ({
       let lastPlaceObj: MarbleInstance | null = null;
 
       if (isStarted && marblesRef.current.length > 0) {
-        let maxSubX = 0;
-        let minLagX = Infinity;
+        let minSubY = Infinity;
+        let maxLagY = -Infinity;
 
         marblesRef.current.forEach((m) => {
-          if (m.body.position.x > maxSubX) {
-            maxSubX = m.body.position.x;
+          if (m.body.position.y < minSubY) {
+            minSubY = m.body.position.y;
             leadingName = m.name;
           }
-          if (m.body.position.x < minLagX) {
-            minLagX = m.body.position.x;
+          if (m.body.position.y > maxLagY) {
+            maxLagY = m.body.position.y;
             lastPlaceObj = m;
           }
         });
@@ -812,15 +857,15 @@ export const DeathRace: React.FC<GameProps> = ({
 
         // Only update camera if manual override is NOT active
         if (!isManualCameraRef.current) {
-          const targetCamX = Math.max(
+          const targetCamY = Math.max(
             0,
-            Math.min(trackWidth - width, maxSubX - width / 3),
+            Math.min(trackHeight - height, minSubY - height / 3),
           );
-          cameraXRef.current += (targetCamX - cameraXRef.current) * 0.1;
+          cameraYRef.current += (targetCamY - cameraYRef.current) * 0.1;
         }
       } else {
         if (!isStarted) {
-          cameraXRef.current = 0;
+          cameraYRef.current = trackHeight - height; // Start camera at the bottom!
           isManualCameraRef.current = false;
         }
       }
@@ -840,43 +885,86 @@ export const DeathRace: React.FC<GameProps> = ({
 
       ctx.save();
       // Apply Camera Viewport Translation + Shake Offsets
-      ctx.translate(-cameraXRef.current + shakeX, shakeY);
+      ctx.translate(shakeX, -cameraYRef.current + shakeY);
 
-      // 1. Draw Grid Lines
-      ctx.strokeStyle = "rgba(30, 41, 59, 0.5)";
-      ctx.lineWidth = 1;
-      for (let x = 0; x < trackWidth; x += 40) {
+      // 1. Draw Asphalt Track Background
+      ctx.fillStyle = "#1e293b"; // Asphalt
+      ctx.fillRect(15, 0, trackWidth - 30, trackHeight);
+
+      // 1.5 Draw Checkered Border Kerbs (Red & White borders)
+      const kerbHeight = 30;
+      for (let y = 0; y < trackHeight; y += kerbHeight) {
+        const isRed = Math.floor(y / kerbHeight) % 2 === 0;
+        ctx.fillStyle = isRed ? "#ef4444" : "#ffffff";
+        ctx.fillRect(0, y, 15, kerbHeight);
+        ctx.fillRect(trackWidth - 15, y, 15, kerbHeight);
+      }
+
+      // White boundary lines
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(15, 0);
+      ctx.lineTo(15, trackHeight);
+      ctx.moveTo(trackWidth - 15, 0);
+      ctx.lineTo(trackWidth - 15, trackHeight);
+      ctx.stroke();
+
+      // Dashed lane divider lines
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([20, 30]);
+      ctx.beginPath();
+      ctx.moveTo(trackWidth / 2, 0);
+      ctx.lineTo(trackWidth / 2, trackHeight);
+      ctx.stroke();
+      ctx.setLineDash([]); // reset
+
+      // 1.7 Starting grid box drawings
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+      ctx.lineWidth = 1.5;
+      const numStartLines = Math.max(3, participants.length);
+      for (let i = 0; i < numStartLines; i++) {
+        const gridY = 4730 - i * 65;
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, trackHeight);
+        ctx.moveTo(35, gridY);
+        ctx.lineTo(trackWidth - 35, gridY);
         ctx.stroke();
       }
-      for (let y = 0; y < trackHeight; y += 40) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(trackWidth, y);
-        ctx.stroke();
-      }
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillRect(15, 4745, trackWidth - 30, 8); // starting line
+      ctx.font = "bold 28px sans-serif";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.textAlign = "center";
+      ctx.fillText("S T A R T", trackWidth / 2, 4650);
 
       // 2. Draw Checkpoints/Track Markers
-      ctx.fillStyle = "rgba(51, 65, 85, 0.4)";
-      ctx.font = "bold 10px monospace";
-      for (let x = 400; x < finishLineX; x += 400) {
-        ctx.fillRect(x - 1, 0, 2, trackHeight);
-        ctx.fillText(`${x}M`, x + 6, 20);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.font = "bold 11px monospace";
+      ctx.textAlign = "left";
+      for (let y = trackHeight - 400; y > finishLineY; y -= 400) {
+        ctx.beginPath();
+        ctx.moveTo(15, y);
+        ctx.lineTo(trackWidth - 15, y);
+        ctx.stroke();
+        const distFromStart = trackHeight - 100 - y;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+        ctx.fillText(`${distFromStart}M`, 25, y - 6);
       }
 
-      // 2.5 Draw Slow swamp zones
+      // 2.5 Draw Mud Zones (Gravel detour / slow swamp)
       const drawSlowZone = (x: number, y: number, w: number, h: number) => {
         ctx.save();
         const pulse = Math.sin(Date.now() / 150) * 0.15 + 0.35;
-        ctx.fillStyle = `rgba(239, 68, 68, ${0.12 * pulse})`;
-        ctx.strokeStyle = `rgba(239, 68, 68, ${0.35 * pulse})`;
+        ctx.fillStyle = `rgba(217, 119, 6, ${0.15 * pulse})`;
+        ctx.strokeStyle = `rgba(217, 119, 6, ${0.45 * pulse})`;
         ctx.lineWidth = 2.5;
         ctx.fillRect(x - w / 2, y - h / 2, w, h);
         ctx.strokeRect(x - w / 2, y - h / 2, w, h);
 
-        ctx.strokeStyle = "rgba(239, 68, 68, 0.14)";
+        ctx.strokeStyle = "rgba(217, 119, 6, 0.16)";
         ctx.lineWidth = 6;
         ctx.save();
         ctx.beginPath();
@@ -889,18 +977,18 @@ export const DeathRace: React.FC<GameProps> = ({
         ctx.stroke();
         ctx.restore();
 
-        ctx.fillStyle = `rgba(239, 68, 68, ${0.7 * pulse})`;
+        ctx.fillStyle = `rgba(217, 119, 6, ${0.8 * pulse})`;
         ctx.font = "bold 10px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("⚠️ DANGER: SLOW ZONE", x, y + 4);
+        ctx.fillText("⚠️ GRAVEL: SLOW", x, y + 4);
         ctx.restore();
       };
 
-      const drawScaleY = trackHeight / 500;
-      drawSlowZone(900, 75 * drawScaleY, 220, 150 * drawScaleY);
-      drawSlowZone(1650, 250 * drawScaleY, 220, 150 * drawScaleY);
-      drawSlowZone(2400, 425 * drawScaleY, 220, 150 * drawScaleY);
-      drawSlowZone(3600, 250 * drawScaleY, 240, 200 * drawScaleY);
+      const scaleX = trackWidth / 500;
+      drawSlowZone(75 * scaleX, 4800 - 900, 150 * scaleX, 220);
+      drawSlowZone(250 * scaleX, 4800 - 1650, 150 * scaleX, 220);
+      drawSlowZone(425 * scaleX, 4800 - 2400, 150 * scaleX, 220);
+      drawSlowZone(250 * scaleX, 4800 - 3600, 200 * scaleX, 240);
 
       // 2.7 Update and Draw Active Shockwaves
       activeShockwavesRef.current.forEach((sw) => {
@@ -929,7 +1017,7 @@ export const DeathRace: React.FC<GameProps> = ({
         (sw) => sw.life < sw.maxLife,
       );
 
-      // 3. Draw Booster Pads
+      // 3. Draw Booster Pads (glowing arrows pointing UP)
       const boosterGlow = Math.sin(Date.now() / 100) * 0.2 + 0.8;
       ctx.fillStyle = `rgba(16, 185, 129, ${0.1 * boosterGlow})`;
       ctx.strokeStyle = `rgba(16, 185, 129, ${0.4 * boosterGlow})`;
@@ -955,11 +1043,12 @@ export const DeathRace: React.FC<GameProps> = ({
         const chevronSpacing = 35;
         const chevronOffset = (Date.now() / 15) % chevronSpacing;
 
-        for (let cy = min.y + chevronOffset; cy < max.y; cy += chevronSpacing) {
+        // Draw chevrons pointing UP (negative y)
+        for (let cy = max.y - chevronOffset; cy > min.y; cy -= chevronSpacing) {
           ctx.beginPath();
-          ctx.moveTo(booster.position.x - 10, cy - 8);
-          ctx.lineTo(booster.position.x + 8, cy);
-          ctx.lineTo(booster.position.x - 10, cy + 8);
+          ctx.moveTo(booster.position.x - 10, cy + 6);
+          ctx.lineTo(booster.position.x, cy - 6);
+          ctx.lineTo(booster.position.x + 10, cy + 6);
           ctx.stroke();
         }
         ctx.restore();
@@ -1013,7 +1102,7 @@ export const DeathRace: React.FC<GameProps> = ({
         ctx.stroke();
       });
 
-      // 4. Draw Bouncy Bumpers (Obstacles)
+      // 4. Draw Bouncy Bumpers (Obstacles, styled like tire stacks)
       const obstacles = engine.world.bodies.filter(
         (b: Body) => b.label === "obstacle",
       );
@@ -1037,10 +1126,16 @@ export const DeathRace: React.FC<GameProps> = ({
 
         ctx.fillStyle = "#1e293b";
         ctx.strokeStyle = "#f97316";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 3.5;
         ctx.beginPath();
         ctx.arc(ob.position.x, ob.position.y, radius, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(249, 115, 22, 0.45)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(ob.position.x, ob.position.y, radius - 8, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.fillStyle = "#f97316";
@@ -1049,13 +1144,13 @@ export const DeathRace: React.FC<GameProps> = ({
         ctx.fill();
       });
 
-      // 4.5 Draw Static Slanted Maze Walls
+      // 4.5 Draw Static Slanted Maze Walls (striped barrier style)
       const walls = engine.world.bodies.filter(
-        (b: Body) => b.label === "wall" && b.bounds.max.x - b.bounds.min.x < 200,
+        (b: Body) => b.label === "wall" && b.plugin?.isMazeWall,
       );
       walls.forEach((wall: Body) => {
-        const localW = (wall.plugin as { w?: number; h?: number }).w || 24;
-        const localH = (wall.plugin as { w?: number; h?: number }).h || 180;
+        const localW = (wall.plugin as { w?: number; h?: number }).w || 180;
+        const localH = (wall.plugin as { w?: number; h?: number }).h || 24;
 
         ctx.save();
         ctx.translate(wall.position.x, wall.position.y);
@@ -1068,12 +1163,12 @@ export const DeathRace: React.FC<GameProps> = ({
         ctx.fillRect(-localW / 2, -localH / 2, localW, localH);
         ctx.strokeRect(-localW / 2, -localH / 2, localW, localH);
 
-        ctx.strokeStyle = "rgba(239, 68, 68, 0.25)";
-        ctx.lineWidth = 3;
-        for (let i = 15; i < localH; i += 20) {
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.4)";
+        ctx.lineWidth = 3.5;
+        for (let i = 15; i < localW; i += 20) {
           ctx.beginPath();
-          ctx.moveTo(-localW / 2, -localH / 2 + i);
-          ctx.lineTo(localW / 2, -localH / 2 + i - localW);
+          ctx.moveTo(-localW / 2 + i, -localH / 2);
+          ctx.lineTo(-localW / 2 + i - localH, localH / 2);
           ctx.stroke();
         }
         ctx.restore();
@@ -1107,7 +1202,7 @@ export const DeathRace: React.FC<GameProps> = ({
         }
       });
 
-      // 6. Draw Marbles, Name Tags, and Last-Place Rage Aura
+      // 6. Draw Formula-1 Racing Cars and Labels
       marblesRef.current.forEach((m) => {
         const { x, y } = m.body.position;
         const radius = m.body.circleRadius || 14;
@@ -1157,28 +1252,75 @@ export const DeathRace: React.FC<GameProps> = ({
         );
         glow.addColorStop(
           1,
-          m.color.replace(")", ", 0)").replace("hsl", "hsla"),
+          m.color.replace(")", ", 0").replace("hsl", "hsla"),
         );
         ctx.fillStyle = glow;
         ctx.beginPath();
         ctx.arc(x, y, radius + 12, 0, Math.PI * 2);
         ctx.fill();
 
+        // DRAW SLEEK F1 RACE CAR SHAPE
+        ctx.save();
+        ctx.translate(x, y);
+
+        let carAngle = -Math.PI / 2;
+        if (
+          Math.abs(m.body.velocity.x) > 0.1 ||
+          Math.abs(m.body.velocity.y) > 0.1
+        ) {
+          carAngle = Math.atan2(m.body.velocity.y, m.body.velocity.x);
+        }
+        ctx.rotate(carAngle + Math.PI / 2); // default face is up
+
+        // Nose Cone (front)
         ctx.fillStyle = m.color;
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.moveTo(0, -18); // nose tip
+        ctx.lineTo(-5, -6); // left front
+        ctx.lineTo(5, -6); // right front
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+        // Main chassis
+        ctx.fillRect(-6, -6, 12, 18);
+        ctx.strokeRect(-6, -6, 12, 18);
+
+        // Cockpit
+        ctx.fillStyle = "#020617";
         ctx.beginPath();
-        ctx.arc(x - 4, y - 4, 3, 0, Math.PI * 2);
+        ctx.ellipse(0, -1, 3, 5, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1;
+        ctx.stroke();
 
+        // Front wing
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(-12, -14, 24, 4);
+        ctx.strokeRect(-12, -14, 24, 4);
+
+        // Rear wing
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(-14, 12, 28, 5);
+        ctx.strokeRect(-14, 12, 28, 5);
+
+        // Left front wheel
+        ctx.fillStyle = "#020617";
+        ctx.fillRect(-11, -11, 4, 7);
+        // Right front wheel
+        ctx.fillRect(7, -11, 4, 7);
+        // Left rear wheel
+        ctx.fillRect(-13, 5, 5, 8);
+        // Right rear wheel
+        ctx.fillRect(8, 5, 5, 8);
+
+        ctx.restore();
+
+        // Render Ranking overlay and Name tags
         const crossedIndex = crossedListRef.current.indexOf(m.body.id);
-
         ctx.fillStyle = m === lastPlaceObj ? "#f43f5e" : "#ffffff";
         ctx.font = "bold 11px sans-serif";
         ctx.textAlign = "center";
@@ -1199,42 +1341,47 @@ export const DeathRace: React.FC<GameProps> = ({
           ctx.font = "bold 11px sans-serif";
         }
 
+        //불꽃이름
         const tagLabel =
-          m === lastPlaceObj && crossedIndex === -1 ? `🔥 ${m.name}` : m.name;
+          m === lastPlaceObj && crossedIndex === -1 ? `${m.name}` : m.name;
+        // m === lastPlaceObj && crossedIndex === -1 ? `🔥 ${m.name}` : m.name;
         ctx.fillText(tagLabel, x, y - radius - 8);
       });
 
-      // 7. Draw Checkered Finish Flag
-      ctx.fillStyle = "#ffffff";
-      const colWidth = 20;
-      const checkSize = 10;
-
-      ctx.fillRect(finishLineX, 0, 3, trackHeight);
-
-      for (let fy = 0; fy < trackHeight; fy += checkSize) {
-        for (let fx = 0; fx < colWidth; fx += checkSize) {
-          const isBlack =
-            (Math.floor(fx / checkSize) + Math.floor(fy / checkSize)) % 2 === 0;
+      // 7. Draw Checkered Finish Flag Strip
+      const finishRowHeight = 15;
+      const checkWidth = 15;
+      for (let row = 0; row < 3; row++) {
+        const fy = finishLineY - 15 + row * finishRowHeight;
+        for (let fx = 15; fx < trackWidth - 15; fx += checkWidth) {
+          const isBlack = (Math.floor(fx / checkWidth) + row) % 2 === 0;
           ctx.fillStyle = isBlack ? "#000000" : "#ffffff";
-          ctx.fillRect(finishLineX + 3 + fx, fy, checkSize, checkSize);
+          ctx.fillRect(fx, fy, checkWidth, finishRowHeight);
         }
       }
 
-      ctx.save();
-      ctx.translate(finishLineX + 15, trackHeight / 2);
-      ctx.rotate(Math.PI / 2);
-      ctx.fillStyle = "#f8fafc";
-      ctx.font = "black 24px monospace";
-      ctx.textAlign = "center";
-      ctx.fillText("🏆 FINISH LINE 🏆", 0, 0);
-      ctx.restore();
+      // Border bounds on the finish area
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(15, finishLineY - 15);
+      ctx.lineTo(trackWidth - 15, finishLineY - 15);
+      ctx.moveTo(15, finishLineY + 30);
+      ctx.lineTo(trackWidth - 15, finishLineY + 30);
+      ctx.stroke();
 
-      // 8. Draw and Update Particles
+      // Finish text
+      ctx.font = "black 32px sans-serif";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.textAlign = "center";
+      ctx.fillText("F I N I S H", trackWidth / 2, finishLineY - 40);
+
+      // 8. Particle updates
       particlesRef.current.forEach((p) => {
-        p.x += p.vx;
-        p.y += p.vy;
         p.life++;
         p.alpha = 1 - p.life / p.maxLife;
+        p.x += p.vx;
+        p.y += p.vy;
 
         ctx.fillStyle = p.color.includes("hsl")
           ? p.color.replace(")", `, ${p.alpha})`).replace("hsl", "hsla")
@@ -1254,12 +1401,12 @@ export const DeathRace: React.FC<GameProps> = ({
         let crossedUpdated = false;
         marblesRef.current.forEach((m) => {
           if (
-            m.body.position.x >= finishLineX &&
+            m.body.position.y <= finishLineY &&
             !crossedListRef.current.includes(m.body.id)
           ) {
             crossedListRef.current.push(m.body.id);
             crossedUpdated = true;
-            spawnParticles(finishLineX, m.body.position.y, m.color, 20, 1.8);
+            spawnParticles(m.body.position.x, finishLineY, m.color, 20, 1.8);
           }
         });
 
@@ -1277,7 +1424,9 @@ export const DeathRace: React.FC<GameProps> = ({
           });
 
           const finishedNames = crossedListRef.current.map((id) => {
-            const marble = marblesRef.current.find((marb) => marb.body.id === id);
+            const marble = marblesRef.current.find(
+              (marb) => marb.body.id === id,
+            );
             return marble ? marble.name : "";
           });
 
@@ -1310,7 +1459,7 @@ export const DeathRace: React.FC<GameProps> = ({
       canvas.removeEventListener("touchend", onTouchEnd);
       canvas.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [isStarted, gameEnded, onFinished, participants, trackHeight]);
+  }, [isStarted, gameEnded, onFinished, participants, trackWidth]);
 
   // Compile final leaderboard standings and stop game instantly
   const handleInstantEnd = () => {
@@ -1322,7 +1471,7 @@ export const DeathRace: React.FC<GameProps> = ({
 
     const remainingMarbles = marblesRef.current
       .filter((m) => !crossedIds.includes(m.body.id))
-      .sort((a, b) => b.body.position.x - a.body.position.x);
+      .sort((a, b) => a.body.position.y - b.body.position.y);
 
     const finalRankingIds = [
       ...crossedIds,
@@ -1350,43 +1499,38 @@ export const DeathRace: React.FC<GameProps> = ({
             <Flag className="w-6 h-6 animate-pulse" />
           </div>
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              데스 레이스{" "}
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                Death Race
-              </span>
+            <h2 className="text-base font-extrabold text-white leading-tight">
+              🏁 데스 레이스 (Death Race)
             </h2>
-            <p className="text-xs text-slate-400">
-              사선 장애물벽과 회전 풍차를 돌파하고, 랜덤 충격파와 함께 결승선에
-              선착하세요!
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              장애물을 뚫고 가장 빠르게 결승선에 도달하세요!
             </p>
           </div>
         </div>
-
-        {isStarted && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          {isStarted && !gameEnded && (
             <button
               onClick={handleInstantEnd}
-              className="px-4 py-2 text-xs font-bold rounded-lg bg-red-650 hover:bg-red-500 text-white transition-all shadow-md active:scale-95 flex items-center gap-1.5 border border-red-550/20 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
-              🛑 즉시 종료 및 순위 보기
+              🏁 즉시 종료
             </button>
-            <button
-              onClick={onReset}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all border border-slate-700 active:scale-95 cursor-pointer"
-            >
-              초기화
-            </button>
-          </div>
-        )}
+          )}
+          <button
+            onClick={onReset}
+            className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700/80 hover:border-slate-600 text-slate-300 transition-all cursor-pointer active:scale-95"
+          >
+            리셋
+          </button>
+        </div>
       </div>
 
-      {/* Real-time stats HUD */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 mb-6 relative z-10">
+      {/* Racetrack HUD Info Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 relative z-10">
         <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 flex items-center gap-3">
-          <Zap
-            className={`w-5 h-5 ${speedUpActive ? "text-yellow-400 animate-bounce" : "text-slate-500"}`}
-          />
+          <div className="p-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400">
+            🏁
+          </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
               가속 (Space바)
@@ -1408,9 +1552,7 @@ export const DeathRace: React.FC<GameProps> = ({
               className="text-sm font-semibold text-slate-200 truncate"
               title={isStarted ? `${leader} (${crossedCount}명 완주)` : "N/A"}
             >
-              {isStarted
-                ? `${leader} (${crossedCount}명 완주)`
-                : "N/A"}
+              {isStarted ? `${leader} (${crossedCount}명 완주)` : "N/A"}
             </p>
           </div>
         </div>
@@ -1421,7 +1563,7 @@ export const DeathRace: React.FC<GameProps> = ({
               남은 트랙
             </p>
             <p className="text-sm font-semibold text-slate-200 truncate">
-              4500M (EXTRA LONG)
+              4400M (EXTRA LONG)
             </p>
           </div>
         </div>
