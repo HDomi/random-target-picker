@@ -44,7 +44,25 @@ export const Layout: React.FC<LayoutProps> = ({
       <footer className="py-3 px-6 border-t border-slate-900 bg-slate-950 text-center text-[10px] sm:text-xs text-slate-600 flex flex-wrap items-center justify-between gap-4 mt-auto">
         <p>© 2026 random-target-picker. All rights reserved.</p>
         <p className="font-mono text-[9px] sm:text-[10px] text-slate-700">
-          Engine: MatterJS / React v19
+          Powered by{" "}
+          <a
+            href="https://github.com/naptha/tesseract.js"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-slate-500 transition-colors"
+          >
+            Tesseract.js
+          </a>{" "}
+          (
+          <a
+            href="https://www.apache.org/licenses/LICENSE-2.0"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-slate-500 transition-colors"
+          >
+            Apache License 2.0
+          </a>
+          ) / MatterJS / React v19
         </p>
       </footer>
     </div>
