@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Engine, Bodies, Composite, Body, Events } from "matter-js";
-import { Flag, Trophy, ShieldAlert } from "lucide-react";
+import { Flag, Trophy } from "lucide-react";
 
 interface GameProps {
   participants: string[];
