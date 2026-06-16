@@ -1375,12 +1375,12 @@ export const DeathRace: React.FC<GameProps> = ({
           <Zap
             className={`w-5 h-5 ${speedUpActive ? "text-yellow-400 animate-bounce" : "text-slate-500"}`}
           />
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
               가속 (Space바)
             </p>
             <p
-              className={`text-sm font-semibold ${speedUpActive ? "text-yellow-400" : "text-slate-300"}`}
+              className={`text-sm font-semibold truncate ${speedUpActive ? "text-yellow-400" : "text-slate-300"}`}
             >
               {speedUpActive ? "3.0x ACTIVE" : "HOLD SPACE"}
             </p>
@@ -1388,11 +1388,14 @@ export const DeathRace: React.FC<GameProps> = ({
         </div>
         <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 flex items-center gap-3">
           <Trophy className="w-5 h-5 text-yellow-500" />
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
               실시간 1등 / 완주
             </p>
-            <p className="text-sm font-semibold text-slate-200 truncate max-w-[120px]">
+            <p
+              className="text-sm font-semibold text-slate-200 truncate"
+              title={isStarted ? `${leader} (${crossedCount}명 완주)` : "N/A"}
+            >
               {isStarted
                 ? `${leader} (${crossedCount}명 완주)`
                 : "N/A"}
@@ -1401,11 +1404,11 @@ export const DeathRace: React.FC<GameProps> = ({
         </div>
         <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 flex items-center gap-3">
           <ShieldAlert className="w-5 h-5 text-red-400" />
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
               남은 트랙
             </p>
-            <p className="text-sm font-semibold text-slate-200">
+            <p className="text-sm font-semibold text-slate-200 truncate">
               4500M (EXTRA LONG)
             </p>
           </div>
