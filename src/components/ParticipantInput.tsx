@@ -302,7 +302,7 @@ export const ParticipantInput: React.FC<ParticipantInputProps> = ({
 
       {/* Description / Info */}
       <p className="text-[11px] sm:text-xs text-slate-400 mb-3 sm:mb-4 leading-relaxed">
-        한 줄에 한 명씩 이름을 입력해 주세요. 최소 2명 이상이 필요합니다.
+        한 줄에 한 명씩 이름을 입력해 주세요.(2명 이상)
       </p>
 
       <input
@@ -357,7 +357,7 @@ export const ParticipantInput: React.FC<ParticipantInputProps> = ({
           onChange={(e) => handleInputChange(e.target.value)}
           onPaste={handlePaste}
           disabled={isGameRunning || isOcrLoading}
-          placeholder="엔터(줄바꿈)로 참여자 이름을 입력하세요... (이미지 복사 후 Ctrl+V 가능)"
+          placeholder={`엔터(줄바꿈)로 참여자 이름을 입력하세요...\n(이미지 복사 후 Ctrl+V 가능)`}
           className="w-full h-full min-h-[160px] sm:min-h-[220px] bg-slate-950/60 text-slate-200 border border-slate-800 rounded-xl p-3 sm:p-4 text-xs sm:text-sm font-sans focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all placeholder:text-slate-650 resize-none disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-950/20"
         />
 

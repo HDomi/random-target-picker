@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { Engine, Bodies, Composite, Body, Events } from "matter-js";
 import { Flag, Trophy } from "lucide-react";
 
+// Game Speed Scale Configurations
+const SPEED_SCALES = [1, 1.5, 2, 3];
+
 interface GameProps {
   participants: string[];
   isStarted: boolean;
@@ -61,19 +64,22 @@ export const DeathRace: React.FC<GameProps> = ({
 
   // React state for HUD
   const [leader, setLeader] = useState<string>("-");
-  const [speedUpActive, setSpeedUpActive] = useState<boolean>(false);
+  const [speedScale, setSpeedScale] = useState<number>(SPEED_SCALES[0]);
   const [gameEnded, setGameEnded] = useState<boolean>(false);
   const [isManualCamera, setIsManualCamera] = useState<boolean>(false); // Track manual override
   const [prevIsStarted, setPrevIsStarted] = useState<boolean>(isStarted);
   const [crossedCount, setCrossedCount] = useState<number>(0);
 
   // Countdown & Start Control States
-  const [shuffledParticipants, setShuffledParticipants] = useState<string[]>([]);
+  const [shuffledParticipants, setShuffledParticipants] = useState<string[]>(
+    [],
+  );
   const [raceStarted, setRaceStarted] = useState<boolean>(false);
   const [countdown, setCountdown] = useState<string | number | null>(null);
   const [isCountdownActive, setIsCountdownActive] = useState<boolean>(false);
 
   const raceStartedRef = useRef<boolean>(false);
+  const speedScaleRef = useRef<number>(SPEED_SCALES[0]);
 
   // Sync state during render when game starts/stops
   if (isStarted !== prevIsStarted) {
@@ -86,11 +92,13 @@ export const DeathRace: React.FC<GameProps> = ({
       setRaceStarted(false);
       setCountdown(null);
       setIsCountdownActive(false);
+      setSpeedScale(SPEED_SCALES[0]);
     } else {
       setShuffledParticipants([]);
       setRaceStarted(false);
       setCountdown(null);
       setIsCountdownActive(false);
+      setSpeedScale(SPEED_SCALES[0]);
     }
   }
 
@@ -98,11 +106,14 @@ export const DeathRace: React.FC<GameProps> = ({
     raceStartedRef.current = raceStarted;
   }, [raceStarted]);
 
+  useEffect(() => {
+    speedScaleRef.current = speedScale;
+  }, [speedScale]);
+
   // References for drawing loop & physics
   const particlesRef = useRef<Particle[]>([]);
   const marblesRef = useRef<MarbleInstance[]>([]);
   const cameraYRef = useRef<number>(0);
-  const isSpeedUpRef = useRef<boolean>(false);
   const cameraShakeRef = useRef<number>(0); // Screen shake intensity
   const activeShockwavesRef = useRef<Shockwave[]>([]); // Dynamic expanding shockwaves
 
@@ -334,7 +345,8 @@ export const DeathRace: React.FC<GameProps> = ({
       const marbles = shuffledParticipants.map((name, index) => {
         const spreadX =
           shuffledParticipants.length > 1
-            ? 50 + (index * (trackWidth - 100)) / (shuffledParticipants.length - 1)
+            ? 50 +
+              (index * (trackWidth - 100)) / (shuffledParticipants.length - 1)
             : trackWidth / 2;
 
         const body = Bodies.circle(spreadX, startY, 14, {
@@ -732,30 +744,8 @@ export const DeathRace: React.FC<GameProps> = ({
       });
     });
 
-    // Spacebar speed hack controllers
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
-        e.preventDefault();
-        isSpeedUpRef.current = true;
-        setSpeedUpActive(true);
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
-        e.preventDefault();
-        isSpeedUpRef.current = false;
-        setSpeedUpActive(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-
     return () => {
       Engine.clear(engine);
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
     };
   }, [isStarted, shuffledParticipants, trackWidth]);
 
@@ -858,7 +848,7 @@ export const DeathRace: React.FC<GameProps> = ({
       const engine = engineRef.current;
       if (!engine) return;
 
-      engine.timing.timeScale = isSpeedUpRef.current ? 3.0 : 1.0;
+      engine.timing.timeScale = speedScaleRef.current;
       Engine.update(engine, 16.666);
 
       ctx.fillStyle = "#0f172a";
@@ -1489,7 +1479,14 @@ export const DeathRace: React.FC<GameProps> = ({
       canvas.removeEventListener("touchend", onTouchEnd);
       canvas.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [isStarted, gameEnded, onFinished, shuffledParticipants, trackWidth, participants.length]);
+  }, [
+    isStarted,
+    gameEnded,
+    onFinished,
+    shuffledParticipants,
+    trackWidth,
+    participants.length,
+  ]);
 
   // Compile final leaderboard standings and stop game instantly
   const handleInstantEnd = () => {
@@ -1613,16 +1610,14 @@ export const DeathRace: React.FC<GameProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6 relative z-10">
         <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 flex items-center gap-2">
           <div className="p-2.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400">
-            🏁
+            ⚡
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-              가속 (Space바)
+              현재 가속 배율
             </p>
-            <p
-              className={`text-sm font-semibold truncate ${speedUpActive ? "text-yellow-400" : "text-slate-300"}`}
-            >
-              {speedUpActive ? "3.0x ACTIVE" : "HOLD SPACE"}
+            <p className="text-sm font-semibold truncate text-yellow-400">
+              {speedScale}x SPEED
             </p>
           </div>
         </div>
@@ -1697,6 +1692,28 @@ export const DeathRace: React.FC<GameProps> = ({
           </div>
         )}
 
+        {/* Speed Toggle Overlay Button */}
+        {isStarted && (
+          <div className="absolute top-4 right-4 z-40">
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSpeedScale((prev) => {
+                  const currentIndex = SPEED_SCALES.indexOf(prev);
+                  const nextIndex = (currentIndex + 1) % SPEED_SCALES.length;
+                  return SPEED_SCALES[nextIndex];
+                });
+              }}
+              className="py-2 px-3 rounded-xl bg-slate-900/95 hover:bg-slate-850 border border-slate-800 hover:border-yellow-500/50 shadow-lg text-xs font-bold text-slate-200 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer backdrop-blur-sm select-none active:scale-95 duration-200"
+            >
+              <span className="text-yellow-500 animate-pulse">⚡</span>
+              <span>속도: {speedScale}x</span>
+            </button>
+          </div>
+        )}
+
         {/* Floating Recenter Camera Overlay Button */}
         {isStarted && isManualCamera && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 animate-bounce">
@@ -1713,7 +1730,7 @@ export const DeathRace: React.FC<GameProps> = ({
         )}
 
         {!isStarted && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 text-center z-20">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 text-center z-20 rounded-[10px]">
             <Flag className="w-12 h-12 text-orange-500/60 mb-3 animate-bounce" />
             <h3 className="text-lg font-bold text-white mb-1">
               데스 레이스 준비 완료
@@ -1724,7 +1741,8 @@ export const DeathRace: React.FC<GameProps> = ({
               누르세요!
             </p>
             <div className="mt-4 text-xs font-mono text-slate-500 border border-slate-800 bg-slate-900/40 py-1.5 px-3 rounded-md">
-              TIP: 레이스 시작 후 [스페이스바]를 길게 누르면 가속(3배속)됩니다!
+              TIP: 우측 상단의 속도 조절 버튼(1x, 1.5x, 2x)으로 레이스 속도를
+              조절할 수 있습니다!
             </div>
           </div>
         )}
