@@ -41,33 +41,36 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
         </div>
 
-        {/* Compact Game Selector inside Header */}
+        {/* Premium Segmented Game Selector inside Header */}
         <div className="flex items-center gap-2">
           {!isGameRunning && (
-            <div className="relative">
-              <select
-                value={currentGame}
-                onChange={(e) => setCurrentGame(e.target.value as GameType)}
-                className="bg-slate-900 hover:bg-slate-850 border border-slate-800 text-white text-[11px] sm:text-xs font-semibold rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-none focus:border-blue-500/50 cursor-pointer transition-colors"
+            <div className="flex bg-slate-900/60 p-1 rounded-xl border border-slate-800/80 backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={() => setCurrentGame("race")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
+                  currentGame === "race"
+                    ? "bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-lg shadow-orange-500/10 border border-orange-400/20"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                }`}
               >
-                <option value="race">🏎️ 데스 레이스</option>
-                <option value="teambuilder">👥 팀 빌더</option>
-              </select>
+                <span>🏎️</span>
+                <span>데스 레이스</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentGame("teambuilder")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer ${
+                  currentGame === "teambuilder"
+                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/10 border border-blue-400/20"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                }`}
+              >
+                <span>👥</span>
+                <span>팀 빌더</span>
+              </button>
             </div>
           )}
-          {/* <div className="flex items-center gap-1.5 text-[9px] sm:text-xs font-mono text-slate-500 bg-slate-900/40 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-slate-800">
-            <Terminal className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-blue-500" />
-            <span className="hidden xs:inline">STATUS:</span>
-            <span
-              className={
-                isGameRunning
-                  ? "text-green-400 font-bold"
-                  : "text-blue-400 font-bold"
-              }
-            >
-              {isGameRunning ? "RUNNING" : "STANDBY"}
-            </span>
-          </div> */}
         </div>
       </header>
 
@@ -87,7 +90,7 @@ export const Layout: React.FC<LayoutProps> = ({
           className={`flex flex-col h-full ${
             isGameRunning
               ? "col-span-1 lg:col-span-12 min-h-[calc(100vh-140px)] lg:min-h-[600px]"
-              : "col-span-1 lg:col-span-8 min-h-[380px] lg:min-h-[500px]"
+              : "hidden lg:flex lg:col-span-8 min-h-[380px] lg:min-h-[500px]"
           }`}
         >
           {children}

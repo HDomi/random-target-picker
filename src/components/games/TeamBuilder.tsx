@@ -1,6 +1,17 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { DndContext, useDraggable, useDroppable, DragOverlay, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
+import {
+  DndContext,
+  useDraggable,
+  useDroppable,
+  DragOverlay,
+  type DragStartEvent,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+  MouseSensor,
+  TouchSensor,
+} from '@dnd-kit/core';
 import { Lock, Unlock, RefreshCw, Sparkles, Users, Plus, Minus, Layers, Trash2 } from 'lucide-react';
 
 interface GameProps {
@@ -112,6 +123,20 @@ export const TeamBuilder: React.FC<GameProps> = ({
   const [teamCount, setTeamCount] = useState<number>(2);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [prevParticipants, setPrevParticipants] = useState<string[]>(participants);
+
+  // Configure touch and mouse sensors for mobile-friendly drag and drop
+  const mouseSensor = useSensor(MouseSensor, {
+    activationConstraint: {
+      distance: 8,
+    },
+  });
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: {
+      delay: 200,
+      tolerance: 6,
+    },
+  });
+  const sensors = useSensors(mouseSensor, touchSensor);
 
   // Sync state during render when participants updates
   if (participants !== prevParticipants) {
@@ -258,7 +283,7 @@ export const TeamBuilder: React.FC<GameProps> = ({
   const activeDraggedPlayer = players.find((p) => p.id === activeId);
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-full bg-slate-900/40 border border-slate-800 rounded-2xl p-4 sm:p-6 backdrop-blur-md overflow-hidden relative min-h-[500px]">
         
         {/* Header HUD */}
@@ -371,7 +396,7 @@ export const TeamBuilder: React.FC<GameProps> = ({
 
               {/* Assigned Teams Grid (Droppable) */}
               <div className="flex-1 bg-slate-950/20 border border-slate-850/50 rounded-xl p-3 sm:p-4 flex flex-col h-full overflow-hidden">
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 h-full items-stretch overflow-y-auto p-0.5">
+                <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-4 h-full items-stretch overflow-y-auto p-0.5">
                   {teams.map((team) => {
                     const teamMembers = players.filter((p) => p.teamId === team.id);
                     return (

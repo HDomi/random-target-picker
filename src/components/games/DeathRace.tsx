@@ -1416,7 +1416,7 @@ export const DeathRace: React.FC<GameProps> = ({
       <div className="relative flex-1 w-full min-h-[350px] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden group select-none">
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 w-full h-full block"
+          className="absolute inset-0 w-full h-full block touch-none"
         />
 
         {/* Scanline overlay */}
