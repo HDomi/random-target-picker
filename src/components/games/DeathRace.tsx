@@ -93,7 +93,7 @@ export const DeathRace: React.FC<GameProps> = ({
   const activeShockwavesRef = useRef<Shockwave[]>([]); // Dynamic expanding shockwaves
 
   // List tracking the crossing order of marbles
-  const crossedListRef = useRef<string[]>([]);
+  const crossedListRef = useRef<number[]>([]);
   const isManualCameraRef = useRef<boolean>(false); // Ref for loop access
 
   // Color generator
@@ -406,7 +406,7 @@ export const DeathRace: React.FC<GameProps> = ({
         }
 
         // Anti-Stuck Mechanism: boost marbles that are nearly stationary for too long
-        const isFinished = crossedListRef.current.includes(m.name);
+        const isFinished = crossedListRef.current.includes(m.body.id);
         if (!isFinished && m.body.plugin) {
           if (currentSpeed < 0.35) {
             m.body.plugin.stuckFrames = (m.body.plugin.stuckFrames || 0) + 1;
@@ -1177,7 +1177,7 @@ export const DeathRace: React.FC<GameProps> = ({
         ctx.arc(x - 4, y - 4, 3, 0, Math.PI * 2);
         ctx.fill();
 
-        const crossedIndex = crossedListRef.current.indexOf(m.name);
+        const crossedIndex = crossedListRef.current.indexOf(m.body.id);
 
         ctx.fillStyle = m === lastPlaceObj ? "#f43f5e" : "#ffffff";
         ctx.font = "bold 11px sans-serif";
@@ -1255,9 +1255,9 @@ export const DeathRace: React.FC<GameProps> = ({
         marblesRef.current.forEach((m) => {
           if (
             m.body.position.x >= finishLineX &&
-            !crossedListRef.current.includes(m.name)
+            !crossedListRef.current.includes(m.body.id)
           ) {
-            crossedListRef.current.push(m.name);
+            crossedListRef.current.push(m.body.id);
             crossedUpdated = true;
             spawnParticles(finishLineX, m.body.position.y, m.color, 20, 1.8);
           }
@@ -1276,8 +1276,13 @@ export const DeathRace: React.FC<GameProps> = ({
             Body.setVelocity(m.body, { x: 0, y: 0 });
           });
 
+          const finishedNames = crossedListRef.current.map((id) => {
+            const marble = marblesRef.current.find((marb) => marb.body.id === id);
+            return marble ? marble.name : "";
+          });
+
           setTimeout(() => {
-            onFinished(crossedListRef.current);
+            onFinished(finishedNames);
           }, 1000);
         }
       }
@@ -1313,14 +1318,21 @@ export const DeathRace: React.FC<GameProps> = ({
 
     setGameEnded(true);
 
-    const crossedNames = [...crossedListRef.current];
+    const crossedIds = [...crossedListRef.current];
 
     const remainingMarbles = marblesRef.current
-      .filter((m) => !crossedNames.includes(m.name))
-      .sort((a, b) => b.body.position.x - a.body.position.x)
-      .map((m) => m.name);
+      .filter((m) => !crossedIds.includes(m.body.id))
+      .sort((a, b) => b.body.position.x - a.body.position.x);
 
-    const finalRankings = [...crossedNames, ...remainingMarbles];
+    const finalRankingIds = [
+      ...crossedIds,
+      ...remainingMarbles.map((m) => m.body.id),
+    ];
+
+    const finalRankings = finalRankingIds.map((id) => {
+      const marble = marblesRef.current.find((marb) => marb.body.id === id);
+      return marble ? marble.name : "";
+    });
 
     marblesRef.current.forEach((m) => {
       Body.setVelocity(m.body, { x: 0, y: 0 });
@@ -1370,7 +1382,7 @@ export const DeathRace: React.FC<GameProps> = ({
       </div>
 
       {/* Real-time stats HUD */}
-      <div className="grid grid-cols-3 gap-4 mb-6 relative z-10">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 mb-6 relative z-10">
         <div className="bg-slate-950/80 border border-slate-850 rounded-xl p-3 flex items-center gap-3">
           <Zap
             className={`w-5 h-5 ${speedUpActive ? "text-yellow-400 animate-bounce" : "text-slate-500"}`}
