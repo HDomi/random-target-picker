@@ -253,26 +253,27 @@ export const DeathRace: React.FC<GameProps> = ({
     const obstaclesData: ObstacleConfig[] = [
       { x: 450, y: 150, r: 25 },
       { x: 450, y: 350, r: 25 },
-      { x: 750, y: 250, r: 35 },
+      { x: 750, y: 250, r: 40 }, // Enlarged to block simple central straight rush
 
       // Sector 2 Maze Bumpers
       { x: 1350, y: 150, r: 24 },
       { x: 1350, y: 350, r: 24 },
       { x: 1650, y: 100, r: 22 },
-      { x: 1650, y: 250, r: 25 },
+      { x: 1650, y: 260, r: 25 }, // Off-center slightly to shift traffic flows
       { x: 1650, y: 400, r: 22 },
       { x: 1950, y: 150, r: 24 },
       { x: 1950, y: 350, r: 24 },
 
       // Sector 3 Bumpers
-      { x: 2550, y: 250, r: 30 },
+      { x: 2550, y: 230, r: 20 }, // Splitted middle bumper into two off-center ones to block center
+      { x: 2550, y: 270, r: 20 },
       { x: 2800, y: 180, r: 20 },
       { x: 2800, y: 320, r: 20 },
       { x: 3100, y: 100, r: 25 },
       { x: 3100, y: 400, r: 25 },
       { x: 3800, y: 150, r: 28 },
       { x: 3800, y: 350, r: 28 },
-      { x: 4150, y: 250, r: 30 },
+      { x: 4150, y: 250, r: 35 }, // Enlarged before final stretch
     ];
 
     const staticObstacles = obstaclesData.map((data) => {
@@ -286,16 +287,18 @@ export const DeathRace: React.FC<GameProps> = ({
     });
     Composite.add(engine.world, staticObstacles);
 
-    // Booster Sensors (Green arrows)
+    // Booster Sensors (Green arrows) - Distributed diagonally to break center-lane advantage
     const boostersData = [
-      { x: 600, y: 250, w: 60, h: 200 },
-      { x: 1350, y: 250, w: 60, h: 120 },
-      { x: 2000, y: 100, w: 60, h: 140 },
-      { x: 2000, y: 400, w: 60, h: 140 },
-      { x: 3100, y: 250, w: 65, h: 160 },
-      { x: 3900, y: 250, w: 60, h: 140 },
-      { x: 4250, y: 150, w: 60, h: 150 },
-      { x: 4250, y: 350, w: 60, h: 150 },
+      { x: 600, y: 130, w: 60, h: 140 },  // Left lane booster
+      { x: 600, y: 370, w: 60, h: 140 },  // Right lane booster
+      { x: 1350, y: 120, w: 60, h: 120 }, // Left lane booster
+      { x: 1350, y: 380, w: 60, h: 120 }, // Right lane booster
+      { x: 2000, y: 250, w: 60, h: 150 }, // Central booster (compensated)
+      { x: 3100, y: 130, w: 65, h: 130 }, // Left lane booster
+      { x: 3100, y: 370, w: 65, h: 130 }, // Right lane booster
+      { x: 3900, y: 120, w: 60, h: 120 }, // Left lane booster
+      { x: 3900, y: 380, w: 60, h: 120 }, // Right lane booster
+      { x: 4250, y: 250, w: 65, h: 150 }, // Central booster (compensated)
     ];
 
     const staticBoosters = boostersData.map((data) => {
