@@ -67,6 +67,14 @@ export const DeathRace: React.FC<GameProps> = ({
   const [prevIsStarted, setPrevIsStarted] = useState<boolean>(isStarted);
   const [crossedCount, setCrossedCount] = useState<number>(0);
 
+  // Countdown & Start Control States
+  const [shuffledParticipants, setShuffledParticipants] = useState<string[]>([]);
+  const [raceStarted, setRaceStarted] = useState<boolean>(false);
+  const [countdown, setCountdown] = useState<string | number | null>(null);
+  const [isCountdownActive, setIsCountdownActive] = useState<boolean>(false);
+
+  const raceStartedRef = useRef<boolean>(false);
+
   // Sync state during render when game starts/stops
   if (isStarted !== prevIsStarted) {
     setPrevIsStarted(isStarted);
@@ -74,8 +82,21 @@ export const DeathRace: React.FC<GameProps> = ({
       setGameEnded(false);
       setIsManualCamera(false);
       setCrossedCount(0);
+      setShuffledParticipants([...participants]);
+      setRaceStarted(false);
+      setCountdown(null);
+      setIsCountdownActive(false);
+    } else {
+      setShuffledParticipants([]);
+      setRaceStarted(false);
+      setCountdown(null);
+      setIsCountdownActive(false);
     }
   }
+
+  useEffect(() => {
+    raceStartedRef.current = raceStarted;
+  }, [raceStarted]);
 
   // References for drawing loop & physics
   const particlesRef = useRef<Particle[]>([]);
@@ -304,16 +325,16 @@ export const DeathRace: React.FC<GameProps> = ({
     Composite.add(engine.world, windmills);
 
     // Create Marbles/Cars if game started
-    if (isStarted && participants.length > 0) {
+    if (isStarted && shuffledParticipants.length > 0) {
       crossedListRef.current = [];
       isManualCameraRef.current = false;
 
       const startY = 4700;
 
-      const marbles = participants.map((name, index) => {
+      const marbles = shuffledParticipants.map((name, index) => {
         const spreadX =
-          participants.length > 1
-            ? 50 + (index * (trackWidth - 100)) / (participants.length - 1)
+          shuffledParticipants.length > 1
+            ? 50 + (index * (trackWidth - 100)) / (shuffledParticipants.length - 1)
             : trackWidth / 2;
 
         const body = Bodies.circle(spreadX, startY, 14, {
@@ -350,8 +371,6 @@ export const DeathRace: React.FC<GameProps> = ({
 
     // Baseline updates and custom forces loop
     Events.on(engine, "beforeUpdate", () => {
-      if (!isStarted) return;
-
       // Update windmill rotations
       windmills.forEach((wm, idx) => {
         const rotationDirection = idx % 2 === 0 ? 1 : -1;
@@ -359,6 +378,17 @@ export const DeathRace: React.FC<GameProps> = ({
         Body.setAngle(wm, wm.angle + rotationSpeed);
         Body.setAngularVelocity(wm, rotationSpeed);
       });
+
+      if (!raceStartedRef.current) {
+        // Stop all marbles
+        marblesRef.current.forEach((m) => {
+          Body.setVelocity(m.body, { x: 0, y: 0 });
+          Body.setAngularVelocity(m.body, 0);
+        });
+        return;
+      }
+
+      if (!isStarted) return;
 
       // Find leading Y and lagging Y bounds for Rubberbanding
       let minLeaderY = 4700;
@@ -727,7 +757,7 @@ export const DeathRace: React.FC<GameProps> = ({
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [isStarted, participants, trackWidth]);
+  }, [isStarted, shuffledParticipants, trackWidth]);
 
   // Drawing, Drag-to-Scroll binding, & Physics updates
   useEffect(() => {
@@ -1459,7 +1489,7 @@ export const DeathRace: React.FC<GameProps> = ({
       canvas.removeEventListener("touchend", onTouchEnd);
       canvas.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [isStarted, gameEnded, onFinished, participants, trackWidth]);
+  }, [isStarted, gameEnded, onFinished, shuffledParticipants, trackWidth, participants.length]);
 
   // Compile final leaderboard standings and stop game instantly
   const handleInstantEnd = () => {
@@ -1490,6 +1520,38 @@ export const DeathRace: React.FC<GameProps> = ({
     onFinished(finalRankings);
   };
 
+  const handleShuffle = () => {
+    if (!isStarted || isCountdownActive || raceStarted || gameEnded) return;
+    const shuffled = [...shuffledParticipants];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setShuffledParticipants(shuffled);
+  };
+
+  const handleStartRace = () => {
+    if (!isStarted || isCountdownActive || raceStarted || gameEnded) return;
+    setIsCountdownActive(true);
+    setCountdown(3);
+
+    // 1s intervals
+    setTimeout(() => {
+      setCountdown(2);
+    }, 1000);
+
+    setTimeout(() => {
+      setCountdown(1);
+    }, 2000);
+
+    setTimeout(() => {
+      setCountdown(null);
+      setIsCountdownActive(false);
+      setRaceStarted(true);
+      raceStartedRef.current = true;
+    }, 3000);
+  };
+
   return (
     <div className="flex flex-col h-full bg-slate-900/40 border border-slate-800 rounded-2xl p-6 backdrop-blur-md overflow-hidden relative">
       {/* Header Info */}
@@ -1509,12 +1571,34 @@ export const DeathRace: React.FC<GameProps> = ({
         </div>
         <div className="flex items-center gap-2">
           {isStarted && !gameEnded && (
-            <button
-              onClick={handleInstantEnd}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-            >
-              🏁 즉시 종료
-            </button>
+            <>
+              {!raceStarted && (
+                <>
+                  <button
+                    onClick={handleStartRace}
+                    disabled={isCountdownActive}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    🚀 시작
+                  </button>
+                  <button
+                    onClick={handleShuffle}
+                    disabled={isCountdownActive}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 text-blue-400 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    🔀 출발위치섞기
+                  </button>
+                </>
+              )}
+              {raceStarted && (
+                <button
+                  onClick={handleInstantEnd}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  🏁 즉시 종료
+                </button>
+              )}
+            </>
           )}
           <button
             onClick={onReset}
@@ -1560,6 +1644,32 @@ export const DeathRace: React.FC<GameProps> = ({
 
       {/* Main Canvas Zone */}
       <div className="relative flex-1 w-full min-h-[350px] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden group select-none">
+        <style>{`
+          @keyframes neon-countdown {
+            0% {
+              transform: scale(2.5);
+              opacity: 0;
+              filter: blur(8px);
+            }
+            15% {
+              opacity: 1;
+              filter: blur(0);
+            }
+            50% {
+              transform: scale(1);
+              opacity: 1;
+            }
+            100% {
+              transform: scale(0.85);
+              opacity: 0;
+              filter: blur(4px);
+            }
+          }
+          .animate-neon-countdown {
+            animation: neon-countdown 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+        `}</style>
+
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full block touch-none"
@@ -1567,6 +1677,25 @@ export const DeathRace: React.FC<GameProps> = ({
 
         {/* Scanline overlay */}
         <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-black/10 opacity-30"></div>
+
+        {/* Countdown Overlay */}
+        {countdown !== null && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-30 pointer-events-none select-none">
+            <div
+              key={countdown}
+              className="animate-neon-countdown font-extrabold text-7xl sm:text-9xl tracking-wider text-center font-sans"
+              style={{
+                textShadow:
+                  countdown === "START"
+                    ? "0 0 10px #22c55e, 0 0 20px #22c55e, 0 0 40px #15803d, 0 0 80px #14532d"
+                    : "0 0 10px #f97316, 0 0 20px #f97316, 0 0 40px #c2410c, 0 0 80px #7c2d12",
+                color: countdown === "START" ? "#4ade80" : "#fb923c",
+              }}
+            >
+              {countdown}
+            </div>
+          </div>
+        )}
 
         {/* Floating Recenter Camera Overlay Button */}
         {isStarted && isManualCamera && (
