@@ -1,73 +1,134 @@
-# React + TypeScript + Vite
+# 🎮 팀섞기 시뮬레이터 (Random Target Picker & Team Maker)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **물리 엔진 기반의 실시간 2D 레이싱**과 **드래그 앤 드롭 기반의 지능형 팀 빌더**를 결합한 프리미엄 랜덤 추첨 및 팀 매칭 웹 애플리케이션입니다.
 
-Currently, two official plugins are available:
+본 프로젝트는 React v19, TypeScript, Vite 환경에서 동작하며, 디스코드나 게임 대기실 스크린샷 이미지에서 참여자 이름을 자동으로 추출하는 OCR(광학 문자 인식) 기능과 Matter.js 물리 엔진을 활용한 몰입감 넘치는 레이싱 게임을 제공합니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## 🛠️ 기술 스택 (Technology Stack)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| 구분 | 기술 / 라이브러리 | 용도 및 특징 |
+| :--- | :--- | :--- |
+| **Core** | `React v19`, `TypeScript` | 컴포넌트 기반 UI 설계, 타입 안정성 확보 |
+| **Build Tool** | `Vite` | 초고속 HMR 및 빌드 시스템 |
+| **Physics** | `Matter.js` | 2D 물리 세계 구성, 충돌 연산, 강체 시뮬레이션 |
+| **OCR** | `Tesseract.js` | 한글/영어 이미지 문자 인식 및 참여자 자동 추출 |
+| **Drag & Drop**| `@dnd-kit/core` | 마우스 및 모바일 터치를 지원하는 고성능 DnD 인터페이스 |
+| **Styling** | `Tailwind CSS`, `Vanilla CSS` | 다크 테마 기반 프리미엄 글래스모피즘(Glassmorphism) UI |
+| **Icons** | `Lucide React` | UI 직관성을 높이기 위한 벡터 아이콘 컴포넌트 |
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🌟 핵심 기능 및 구현 상세 (Core Features & Implementation)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 1. 참여자 명단 관리 및 지능형 OCR 추출 (Participant Management & OCR)
+사용자가 참여자 목록을 수동으로 입력하거나, 이미지 한 장만으로 대규모 참가자를 빠르고 정확하게 등록할 수 있는 지능형 입력 패널입니다.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+*   **수동 줄바꿈 입력**: 한 줄에 한 명씩 이름을 입력하여 참여자를 추가합니다.
+*   **클립보드 및 파일 업로드 OCR**:
+    *   화면 캡처 이미지(디스코드 멤버 목록, 카카오톡 참여자 등)를 복사한 후 텍스트 영역에 붙여넣기(`Ctrl+V` / `Cmd+V`)하거나 이미지 파일을 드래그하여 문자를 추출합니다.
+*   **추출 파이프라인 및 인식률 개선 (Image Preprocessing)**:
+    1.  **3배 해상도 업스케일링**: 원본 이미지의 픽셀을 Canvas 상에서 3배 확대하여 저해상도 텍스트의 인식 오차를 최소화합니다.
+    2.  **그레이스케일(Grayscale) 변환**: $0.299 \times R + 0.587 \times G + 0.114 \times B$ 공식에 기반하여 이미지를 흑백 조로 전처리함으로써 텍스트 대비(Contrast)를 극대화합니다.
+    3.  **Tesseract.js 다국어 모델**: 한글과 영어(`kor+eng`) 모델을 병렬로 가동하여 인식합니다.
+    4.  **노이즈 필터링 정규식**:
+        *   디스코드나 메신저 상태 메시지("온라인", "오프라인", "활동 중", "게임 중", "멤버", "봇", "bot") 및 시간 정보("오전", "오후") 등 무의미한 노이즈 키워드를 자동으로 거릅니다.
+        *   특수문자를 제거하고 글자 수가 1자 이상 15자 이하인 유효한 이름만 정밀 선별하여 리스트에 적재합니다.
+*   **유효성 검사**: 중복 이름 검사, 최소 2명 이상 필수 제한 및 게임별 최대 인원(레이스 기준 최대 30명) 제한을 제어합니다.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
+
+### 2. 데스 레이스 (Death Race)
+Matter.js 2D 물리 엔진을 사용하여 F1 차량들이 동적으로 장애물을 돌파하며 결승선에 도달하는 실시간 종스크롤 레이싱 시뮬레이션입니다.
+
+*   **F1 레이싱 머신 시뮬레이션**:
+    *   Canvas API를 활용하여 단순 원형 바디에 **Front Wing, Rear Wing, Cockpit, 4개의 타이어 및 노즈 콘**을 렌더링한 정밀 F1 레이싱 머신 그래픽 모델을 적용했습니다.
+    *   물리 바디의 실제 이동 속도 벡터 방향과 회전각($\text{atan2}(v_y, v_x)$)을 동적으로 매핑하여 사실적인 드리프트 및 코너링 모션을 연출합니다.
+*   **트랙 디자인 및 오브젝트**:
+    *   **부스터 발판**: 밟을 경우 순간적으로 순방향 속도 급증(최대 속도 임시 해제) 및 고유 추진 이펙트 제공.
+    *   **회전식 풍차**: 지속해서 일정 속도로 회전하는 대형 4익 날개 장애물로, 충돌 시 반발력에 의해 차량을 튕겨내어 대형 사고 유발.
+    *   **정적 타이어 범퍼**: 높은 탄성 계수(Restitution: 1.35)를 지닌 장애물로, 벽면 팅김 현상을 극대화함.
+    *   **자갈 감속 구역(Gravel/Mud Zone)**: 자갈 구역 진입 시 공기 저항 계수(`frictionAir`)를 증가시켜 감속을 강제하고 주행 편차를 발생시킴.
+*   **주행 제어 및 물리 보정 알고리즘**:
+    *   **장애물 회피 조향 알고리즘**: 매 프레임 차량 진행 방향 전방 85px 범위를 탐색하여 정면에 범퍼나 풍차가 감지될 경우, 장애물의 중심 좌표를 우회하기 위한 횡력 조향 벡터(`steerX`)를 실시간 계산하여 부가합니다.
+    *   **벽면 밀착 방지 (Wall Avoidance)**: 좌우 외곽 벽면 20px 이내로 밀착할 시 반대 방향 수직 항력을 자동으로 주어 벽면에 걸려 멈추는 것을 방지합니다.
+    *   **러버밴딩 Catch-up & 선두 감속**:
+        *   선두 차량이 독주하는 것을 막기 위해 선두 차량의 최대 속도 한계치를 11.5로 제한합니다.
+        *   뒤처진 차량들에게는 선두와의 거리 비례 상수(`catchUpFactor`)를 곱해 추진력을 증가시킵니다.
+        *   최하위 차량에게는 1.4배의 가속 성능 버프(Rage Aura)를 부여해 불꽃 오라 이펙트와 함께 대역전의 발판을 제공합니다.
+    *   **교착 상태 탈출 (Stuck Detection & Breakout)**:
+        *   차량이 장애물 틈새나 복잡한 구역에 완전히 끼었을 경우를 대비해, 100프레임 동안 Y축 전진이 5px 이하인 경우를 감지합니다.
+        *   교착 감지 시 파란색 스파크 파티클 효과와 함께 장애물 반대편 횡방향 및 강력한 후진/점프 추진력을 순간적으로 가해 강제 탈출시킵니다.
+    *   **충돌 물리와 스턴 시스템**:
+        *   차량 상호 충돌 시 충돌 벡터의 내적값을 활용해 충격량(`impactMagnitude`)을 산출합니다.
+        *   임팩트 수치가 7.0을 초과하는 강한 충돌 시 화면 진동 효과(`cameraShake`)를 트리거하고, 각 차량의 고유 색상 파티클을 다량 분사하며 16프레임 동안 차량을 미세 기절(`stunTime`, 속도 88% 감쇄) 상태로 만듭니다.
+    *   **무작위 쇼크웨이브 광역 스킬**:
+        *   매 프레임 0.2%의 무작위 확률로 특정 차량에서 주변 구역을 강타하는 쇼크웨이브가 폭발합니다. 주변 차량들은 거리에 반비례하는 물리 충격파를 받아 튕겨 나가게 됩니다.
+*   **카메라 및 스피드 제어 시스템**:
+    *   **카메라 트래킹**: 선두 차량의 Y 좌표를 중심으로 화면을 자동 추적하며 선형 보간(Lerp, 속도 계수 0.1) 처리하여 멀미를 방지합니다.
+    *   **수동 오버라이드 및 복원**: 사용자가 마우스 클릭 후 드래그하거나 모바일 터치 드래그 시 트래킹이 즉시 해제되어 트랙의 특정 부분을 자유롭게 살펴볼 수 있으며, `자동 카메라 복원` 버튼으로 선두 트래킹 상태로 즉시 회귀합니다.
+    *   **배속 제어**: 엔진 시간축 스케일링(`timeScale`)을 조정하여 1x, 1.5x, 2x, 3x 배속 주행을 실시간 지원합니다.
+    *   **즉시 종료 (Instant End)**: 레이스가 장기화되거나 빠르게 추첨 결과를 내고 싶을 때, 현재 완주 순위와 트랙 잔여 거리(Y좌표 기준)를 종합 산출하여 순위를 즉각 판정하고 레이스를 종료합니다.
+
+---
+
+### 3. 팀 빌더 (Team Builder)
+직관적인 드래그 앤 드롭 카드 인터페이스를 활용하여, 대기 중인 인원을 원하는 수만큼의 팀으로 무작위 셔플 및 수동 매칭하는 기능입니다.
+
+*   **@dnd-kit 기반 드래그 앤 드롭**:
+    *   마우스뿐만 아니라 모바일 환경을 배려해 200ms 지연 및 미세 이동 오차 임계치(Tolerance)를 지닌 `TouchSensor`를 적용하여 모바일 드래그 중 화면 스크롤과의 간섭을 방지했습니다.
+    *   대기자 명단 영역과 각각의 팀 컨테이너(2개 ~ 최대 8개)가 독립된 `Droppable` 영역으로 정의되어 자유로운 드래그 이동을 보장합니다.
+    *   `DragOverlay`와 React Portal을 접목하여 드래그 중인 플레이어 카드가 내부 CSS의 `overflow-hidden` 제약을 깨고 화면 최상단에 깨짐 없이 표시되도록 구현했습니다.
+*   **개별 플레이어 잠금(Lock/Unlock) 기능**:
+    *   플레이어 카드 우측의 자물쇠 버튼을 활성화하면 해당 플레이어는 현재 소속된 팀(또는 대기실) 상태에 물리적으로 **고정**됩니다.
+    *   이후 전체 다시 섞기(셔플)를 진행하더라도 잠금 처리된 사용자는 그 자리를 유지하고, 잠금 해제된 멤버만 랜덤하게 재배치됩니다. (내부 스키마 `isLocked: boolean` 플래그 관리)
+*   **균등 무작위 자동 배치 알고리즘**:
+    *   **Fisher-Yates Shuffle**: JavaScript의 `Math.random`과 스왑 구조를 결합해 완벽한 난수 배치를 보장합니다.
+    *   **인원수 균등 분배**: 셔플 시 고정된 인원수가 달라 팀 간 불균형이 생기는 것을 해결하기 위해, 현재 각 팀의 인원수를 오름차순 정렬하여 인원이 가장 적은 팀부터 대기실 플레이어들을 한 명씩 라운드 로빈 형태로 밀어 넣는 보정 알고리즘을 사용합니다.
+
+---
+
+## 📂 프로젝트 폴더 구조 (Directory Structure)
+
+```bash
+src/
+├── App.tsx                   # 메인 애플리케이션 및 결과 모달 오버레이 관리
+├── main.tsx                  # React 19 진입점
+├── index.css                 # 전역 스타일 및 그리드 레이아웃 선언
+├── assets/                   # 이미지 및 정적 애셋 보관 디렉토리
+└── components/
+    ├── Layout.tsx            # 반응형 2단 그리드(레이아웃) 관리
+    ├── ParticipantInput.tsx  # 참가자 명단 입력 및 OCR 처리, 샌드박스 유효성 검사
+    └── games/
+        ├── DeathRace.tsx     # Matter.js 물리 엔진 기반 실시간 2D 레이싱 컴포넌트
+        └── TeamBuilder.tsx   # @dnd-kit 기반 지능형 팀 빌더 컴포넌트
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🚀 설치 및 시작 방법 (Getting Started)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+#### 1. 패키지 의존성 설치
+사용하시는 패키지 매니저(npm 또는 pnpm 등)를 이용해 의존성을 내려받습니다.
+```bash
+npm install
+# 또는
+pnpm install
+```
+
+#### 2. 개발 서버 구동
+Vite 로컬 개발 서버를 실행합니다.
+```bash
+npm run dev
+# 또는
+pnpm run dev
+```
+
+#### 3. 정적 파일 빌드
+운영 환경에 배포할 정적 번들을 빌드합니다.
+```bash
+npm run build
+# 또는
+pnpm run build
 ```
